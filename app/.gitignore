@@ -1,0 +1,24 @@
+# dependensi
+/node_modules
+
+# next.js
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# tes
+/coverage
+
+# rahasia dan konfigurasi lokal (hanya .env.example yang boleh masuk git)
+.env*
+!.env.example
+*.pem
+
+# database SQLite dan berkas media lokal (tidak pernah di-commit)
+/data/
+
+# lain-lain
+.DS_Store
+npm-debug.log*

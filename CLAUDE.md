@@ -10,6 +10,8 @@ Lapaq Playbook adalah website panduan produk yang membuat tim marketing internal
 
 Sumber acuan: `docs/blueprint.md`. Jika berbeda dengan dokumen Blueprint asli di Claude Docs, dokumen asli yang berlaku.
 
+Fase 1 sedang berjalan: Langkah 1 (fondasi).
+
 ## Keputusan kunci (dari blueprint)
 
 - **Bentuk**: dokumen yang bisa dibaca, bukan video. Bahasa konten: Indonesia saja.
@@ -40,7 +42,7 @@ Angka dasar dan target waktu pemahaman marketing, estimasi biaya bulanan, apakah
 3. **Jangan mengirim file `.env`, kunci API, atau data pelanggan ke AI.** Jangan membaca atau menyalinnya ke percakapan, prompt, atau log.
 4. **Semua draf AI berstatus Internal** dan beraudiens Internal saja sampai Admin mengubahnya.
 5. **Berkomunikasi dalam bahasa Indonesia**, termasuk dokumen, komentar, dan pesan commit, kecuali nama kode.
-6. Jangan menulis kode aplikasi sebelum diminta. Saat ini fokusnya dokumen dan audit.
+6. Kode aplikasi hanya boleh ditulis di `app/` dan hanya untuk langkah yang diminta Product Manager.
 
 ## Struktur folder
 
@@ -50,7 +52,7 @@ lapaq-playbook/
 ├── docs/     # blueprint dan dokumen perencanaan
 │             # docs/pedoman-commit-lapaq.md: pedoman commit yang diusulkan untuk tim Lapaq
 ├── audit/    # hasil audit (mis. github-pr-audit.md)
-└── app/      # aplikasi Next.js (belum dibuat; jangan dibuat sebelum diminta)
+└── app/      # aplikasi Next.js (Fase 1, Langkah 1 sedang dibangun)
 ```
 
 ## Tugas pertama: audit repositori GitHub Lapaq (selesai)
