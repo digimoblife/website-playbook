@@ -1,4 +1,4 @@
-import type { Audience, Role, Status } from "@/lib/domain";
+import type { Audience, Kind, MediaKind, Nature, Role, Status } from "@/lib/domain";
 
 export const ROLE_LABEL: Record<Role, string> = {
   admin: "Admin",
@@ -22,3 +22,19 @@ export const AUDIENCE_LABEL: Record<Audience, string> = {
 export function homePathFor(role: Role): string {
   return role === "admin" ? "/admin" : "/";
 }
+
+export const KIND_LABEL: Record<Kind, string> = {
+  core: "Fitur inti",
+  addon: "Add-on",
+};
+
+export const NATURE_LABEL: Record<Nature, string> = {
+  new: "Baru",
+  update: "Pembaruan",
+};
+
+export const MEDIA_KIND_LABEL: Record<MediaKind, string> = {
+  screenshot: "Screenshot",
+  gif: "GIF",
+  promo: "Gambar promosi",
+};

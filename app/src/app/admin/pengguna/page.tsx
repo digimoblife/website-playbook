@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireAdmin } from "@/lib/dal";
 import { formatDateTime } from "@/lib/format";
 import { ROLE_LABEL } from "@/lib/labels";
@@ -71,14 +72,19 @@ export default async function PenggunaPage() {
                       {u.id === admin.id ? (
                         <span className="muted">Akun Anda</span>
                       ) : (
-                        <form action={setActiveAction}>
-                          <input type="hidden" name="id" value={u.id} />
-                          <input type="hidden" name="active" value={String(!u.active)} />
-                          <button type="submit" className={`btn ${u.active ? "btn-danger" : "btn-secondary"}`}>
-                            {u.active ? "Nonaktifkan" : "Aktifkan"}
-                            <span className="visually-hidden"> {u.name}</span>
-                          </button>
-                        </form>
+                        <div className="item-actions">
+                          <Link href={`/admin/pengguna/${u.id}`} className="btn btn-secondary">
+                            Kelola<span className="visually-hidden"> {u.name}</span>
+                          </Link>
+                          <form action={setActiveAction}>
+                            <input type="hidden" name="id" value={u.id} />
+                            <input type="hidden" name="active" value={String(!u.active)} />
+                            <button type="submit" className={`btn ${u.active ? "btn-danger" : "btn-secondary"}`}>
+                              {u.active ? "Nonaktifkan" : "Aktifkan"}
+                              <span className="visually-hidden"> {u.name}</span>
+                            </button>
+                          </form>
+                        </div>
                       )}
                     </td>
                   </tr>

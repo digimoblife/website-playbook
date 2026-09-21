@@ -101,6 +101,9 @@ export const entries = sqliteTable(
       .notNull()
       .default(false),
     publishedAt: integer("published_at", { mode: "timestamp_ms" }),
+    // Entri tidak pernah dihapus, hanya diarsipkan. Entri terarsip selalu is_published = false
+    // (dijaga oleh pemicu database di migrasi 0002 dan oleh lib/admin-entries.ts).
+    archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(nowMs),
@@ -115,19 +118,6 @@ export const entries = sqliteTable(
     check("entries_audience_check", oneOf(t.audience, AUDIENCES)),
     index("entries_visibility_idx").on(t.isPublished, t.status, t.audience),
   ],
-);
-
-export const entrySteps = sqliteTable(
-  "entry_steps",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    entryId: integer("entry_id")
-      .notNull()
-      .references(() => entries.id, { onDelete: "cascade" }),
-    position: integer("position").notNull(),
-    text: text("text").notNull(),
-  },
-  (t) => [unique("entry_steps_entry_position_unq").on(t.entryId, t.position)],
 );
 
 export const media = sqliteTable(
@@ -150,6 +140,21 @@ export const media = sqliteTable(
     check("media_source_check", oneOf(t.source, MEDIA_SOURCES)),
     index("media_entry_id_idx").on(t.entryId),
   ],
+);
+
+export const entrySteps = sqliteTable(
+  "entry_steps",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    entryId: integer("entry_id")
+      .notNull()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    text: text("text").notNull(),
+    // Satu gambar opsional per langkah. Bila gambarnya dihapus, tautan ini menjadi kosong.
+    mediaId: integer("media_id").references(() => media.id, { onDelete: "set null" }),
+  },
+  (t) => [unique("entry_steps_entry_position_unq").on(t.entryId, t.position)],
 );
 
 export const entryHistory = sqliteTable(

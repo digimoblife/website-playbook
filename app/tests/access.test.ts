@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSeeCannotPromise, canView, isAdmin, visibleAudiences } from "@/lib/access";
+import { canSeeCannotPromise, canView, isAdmin, readersWhoCanView, visibleAudiences } from "@/lib/access";
 import type { Role } from "@/lib/domain";
 import { ALL_AUDIENCES, ALL_ROLES, ALL_STATUSES, PUBLISHED_STATES } from "./helpers";
 
@@ -97,5 +97,42 @@ describe("kasus khusus akses", () => {
     expect(canSeeCannotPromise({ role: "marketing" })).toBe(true);
     expect(canSeeCannotPromise({ role: "partner" })).toBe(false);
     expect(canSeeCannotPromise(null)).toBe(false);
+  });
+});
+
+describe("entri terarsip", () => {
+  const archived = {
+    isPublished: false,
+    status: "siap" as const,
+    audience: "partner" as const,
+    archivedAt: new Date(),
+  };
+
+  it("hanya Admin yang melihat entri terarsip", () => {
+    expect(canView({ role: "admin" }, archived)).toBe(true);
+    expect(canView({ role: "marketing" }, archived)).toBe(false);
+    expect(canView({ role: "partner" }, archived)).toBe(false);
+  });
+
+  it("entri terarsip tetap tak terlihat pembaca walau (secara keliru) berstatus terbit", () => {
+    const forced = { ...archived, isPublished: true };
+    expect(canView({ role: "marketing" }, forced)).toBe(false);
+    expect(canView({ role: "partner" }, forced)).toBe(false);
+  });
+});
+
+describe("readersWhoCanView: pembaca yang akan melihat bila entri diterbitkan", () => {
+  it.each([
+    ["beta", "partner", ["marketing", "partner"]],
+    ["siap", "partner", ["marketing", "partner"]],
+    ["beta", "marketing", ["marketing"]],
+    ["siap", "marketing", ["marketing"]],
+    ["beta", "internal", []],
+    ["siap", "internal", []],
+    ["internal", "partner", []],
+    ["internal", "marketing", []],
+    ["internal", "internal", []],
+  ] as const)("status %s, audiens %s -> %j", (status, audience, expected) => {
+    expect(readersWhoCanView({ status, audience })).toEqual(expected);
   });
 });

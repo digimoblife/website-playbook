@@ -1,10 +1,8 @@
-import type { Metadata } from "next";
-import { ComingSoon } from "@/components/coming-soon";
+import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/dal";
 
-export const metadata: Metadata = { title: "Inbox" };
-
-export default async function Page() {
+// Inbox sekarang ada di /admin. Alamat lama dipertahankan supaya tautan lama tetap jalan.
+export default async function InboxLamaPage() {
   await requireAdmin();
-  return <ComingSoon title="Inbox" />;
+  redirect("/admin");
 }

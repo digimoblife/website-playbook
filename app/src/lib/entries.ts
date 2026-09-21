@@ -5,7 +5,7 @@
 //     tidak pernah di-SELECT, jadi nilainya tidak pernah keluar dari database.
 //  2. Hasilnya disaring lagi dengan canView() dan dibersihkan dari cannotPromise
 //     bila perannya tidak berhak, sehingga kesalahan di satu lapis tidak membocorkan data.
-import { and, desc, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, sql, type SQL } from "drizzle-orm";
 import { getDb, type AppDb } from "@/db/client";
 import { entries } from "@/db/schema";
 import {
@@ -32,6 +32,7 @@ const readerColumns = {
   needsTags: entries.needsTags,
   isPublished: entries.isPublished,
   publishedAt: entries.publishedAt,
+  archivedAt: entries.archivedAt,
   createdAt: entries.createdAt,
   updatedAt: entries.updatedAt,
 };
@@ -57,6 +58,7 @@ function visibilityFilter(viewer: ActiveViewer): SQL | undefined {
   if (audiences.length === 0) return sql`0`;
   return and(
     eq(entries.isPublished, true),
+    isNull(entries.archivedAt),
     ne(entries.status, "internal"),
     inArray(entries.audience, [...audiences]),
   );

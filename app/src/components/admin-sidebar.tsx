@@ -5,12 +5,18 @@ import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/logout";
 
 const MENU = [
-  { href: "/admin/inbox", label: "Inbox" },
+  { href: "/admin", label: "Inbox" },
   { href: "/admin/entri", label: "Semua entri" },
   { href: "/admin/arsip", label: "Arsip" },
   { href: "/admin/riwayat", label: "Riwayat" },
   { href: "/admin/pengguna", label: "Pengguna" },
 ];
+
+// "/admin" hanya aktif untuk dirinya sendiri; menu lain juga aktif di halaman turunannya.
+function isActive(pathname: string, href: string): boolean {
+  if (href === "/admin") return pathname === "/admin";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function AdminSidebar({ userName, roleLabel }: { userName: string; roleLabel: string }) {
   const pathname = usePathname();
@@ -25,7 +31,7 @@ export function AdminSidebar({ userName, roleLabel }: { userName: string; roleLa
             key={item.href}
             href={item.href}
             className="sidebar-link"
-            aria-current={pathname === item.href ? "page" : undefined}
+            aria-current={isActive(pathname, item.href) ? "page" : undefined}
           >
             {item.label}
           </Link>

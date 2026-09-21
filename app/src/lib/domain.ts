@@ -22,3 +22,25 @@ export type MediaKind = (typeof MEDIA_KINDS)[number];
 
 export const MEDIA_SOURCES = ["auto", "manual"] as const;
 export type MediaSource = (typeof MEDIA_SOURCES)[number];
+
+// Tag kebutuhan pelanggan: pilihan tetap. Yang disimpan di database adalah `key`.
+export const NEEDS_TAGS = [
+  { key: "menarik-pembeli", label: "Menarik pembeli" },
+  { key: "mengelola-stok", label: "Mengelola stok" },
+  { key: "mengelola-pesanan", label: "Mengelola pesanan" },
+  { key: "dompet-penarikan", label: "Dompet dan penarikan" },
+] as const;
+export type NeedsTagKey = (typeof NEEDS_TAGS)[number]["key"];
+export const NEEDS_TAG_KEYS: readonly NeedsTagKey[] = NEEDS_TAGS.map((t) => t.key);
+
+// Batas isian. Dipakai server (validasi) dan editor (atribut maxLength).
+export const LIMITS = {
+  title: 120,
+  slug: 80,
+  summary: 200,
+  longText: 3000,
+  stepText: 300,
+  steps: 12,
+  imagesPerEntry: 20,
+  historyPageSize: 50,
+} as const;

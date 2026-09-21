@@ -16,6 +16,8 @@ export type EntryAccessFields = {
   isPublished: boolean;
   status: Status;
   audience: Audience;
+  /** Entri terarsip tidak pernah terlihat oleh pembaca (hanya Admin). */
+  archivedAt?: Date | null;
 };
 
 const AUDIENCES_BY_READER_ROLE: Record<"marketing" | "partner", readonly Audience[]> = {
@@ -43,6 +45,7 @@ export function canView(viewer: Viewer, entry: EntryAccessFields): boolean {
   if (!isActiveViewer(viewer)) return false;
   if (viewer.role === "admin") return true;
   if (viewer.role !== "marketing" && viewer.role !== "partner") return false;
+  if (entry.archivedAt) return false;
   if (!entry.isPublished) return false;
   if (entry.status === "internal") return false;
   return visibleAudiences(viewer.role).includes(entry.audience);
@@ -54,4 +57,25 @@ export function canSeeCannotPromise(viewer: Viewer): boolean {
     isActiveViewer(viewer) &&
     (viewer.role === "admin" || viewer.role === "marketing")
   );
+}
+
+const READER_ROLES = ["marketing", "partner"] as const;
+
+/** Peran pembaca yang SAAT INI bisa melihat entri (memperhitungkan terbit, status, audiens, dan arsip). */
+export function readersWhoCanViewNow(entry: EntryAccessFields): Role[] {
+  return READER_ROLES.filter((role) => canView({ role }, entry));
+}
+
+/** Apakah entri ini sekarang terlihat oleh pembaca mana pun? Dipakai Inbox. */
+export function isVisibleToReaders(entry: EntryAccessFields): boolean {
+  return readersWhoCanViewNow(entry).length > 0;
+}
+
+/**
+ * Peran pembaca yang akan bisa melihat entri bila entri itu diterbitkan (dan tidak diarsipkan)
+ * dengan status dan audiens ini. Kosong berarti tidak akan tampil ke pembaca mana pun.
+ * Dipakai untuk ringkasan di editor dan aturan publish; jangan menduplikasi aturannya di tempat lain.
+ */
+export function readersWhoCanView(entry: Pick<EntryAccessFields, "status" | "audience">): Role[] {
+  return readersWhoCanViewNow({ isPublished: true, status: entry.status, audience: entry.audience });
 }
