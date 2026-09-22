@@ -5,15 +5,16 @@
 //     tidak pernah di-SELECT, jadi nilainya tidak pernah keluar dari database.
 //  2. Hasilnya disaring lagi dengan canView() dan dibersihkan dari cannotPromise
 //     bila perannya tidak berhak, sehingga kesalahan di satu lapis tidak membocorkan data.
-import { and, desc, eq, inArray, isNull, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import { getDb, type AppDb } from "@/db/client";
-import { entries } from "@/db/schema";
+import { entries, entrySteps, media } from "@/db/schema";
 import {
   canSeeCannotPromise,
   canView,
   visibleAudiences,
   type Viewer,
 } from "@/lib/access";
+import type { MediaKind } from "@/lib/domain";
 
 const readerColumns = {
   id: entries.id,
@@ -100,4 +101,66 @@ export function getEntryBySlugFor(
     .get();
   if (!row || !canView(viewer, row)) return null;
   return finalize(viewer, row);
+}
+
+export type EntryStepForReader = { text: string; mediaId: number | null };
+export type GalleryImageForReader = { id: number; kind: MediaKind };
+
+export type EntryDetailForReader = EntryForReader & {
+  /** Langkah "Cara pakai", terurut posisi. */
+  steps: EntryStepForReader[];
+  /** Gambar entri yang tidak ditautkan ke langkah mana pun (galeri di atas). */
+  images: GalleryImageForReader[];
+};
+
+/**
+ * Satu-satunya pintu bagi halaman fitur untuk mengambil langkah dan gambar entri. Memanggil
+ * pemeriksaan akses yang sama dengan getEntryBySlugFor (canView) lewat fungsi itu sendiri, dan
+ * HANYA bila lolos baru mengambil entry_steps dan galeri gambar. Mengembalikan null bila entri
+ * tidak ada atau tidak boleh dilihat, tak dibedakan — dan dalam kasus itu, tidak ada satu pun
+ * query langkah atau gambar yang dijalankan, jadi tidak ada yang bisa bocor.
+ */
+export function getEntryDetailBySlugFor(
+  viewer: Viewer,
+  slug: string,
+  db: AppDb = getDb(),
+): EntryDetailForReader | null {
+  const entry = getEntryBySlugFor(viewer, slug, db);
+  if (!entry) return null;
+
+  const steps = db
+    .select({ text: entrySteps.text, mediaId: entrySteps.mediaId })
+    .from(entrySteps)
+    .where(eq(entrySteps.entryId, entry.id))
+    .orderBy(asc(entrySteps.position))
+    .all();
+
+  // Gambar milik entri ini yang belum ditautkan ke langkah mana pun. Karena media_id di
+  // entry_steps hanya boleh menunjuk gambar milik entri yang sama (lib/admin-entries.ts),
+  // "id-nya dipakai di entry_steps manapun" sama artinya dengan "dipakai di langkah entri ini".
+  const linkedMediaIds = steps
+    .map((s) => s.mediaId)
+    .filter((id): id is number => id !== null);
+  const images = db
+    .select({ id: media.id, kind: media.kind })
+    .from(media)
+    .where(
+      linkedMediaIds.length > 0
+        ? and(eq(media.entryId, entry.id), notInArray(media.id, linkedMediaIds))
+        : eq(media.entryId, entry.id),
+    )
+    .orderBy(asc(media.id))
+    .all();
+
+  return { ...entry, steps, images };
+}
+
+/**
+ * Slug dari sebuah id entri, atau null bila tidak ada. Dipakai HANYA untuk memanggil ulang
+ * getEntryBySlugFor (validasi akses) dari kode yang cuma punya entryId, mis. umpan balik
+ * halaman (lib/feedback.ts). Tidak membocorkan apa pun: id yang tidak ada atau yang tidak
+ * boleh dilihat viewer sama-sama berakhir null di pemanggilnya, lewat getEntryBySlugFor.
+ */
+export function getEntrySlugById(id: number, db: AppDb = getDb()): string | null {
+  return db.select({ slug: entries.slug }).from(entries).where(eq(entries.id, id)).get()?.slug ?? null;
 }

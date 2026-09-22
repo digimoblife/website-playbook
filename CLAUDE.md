@@ -10,7 +10,7 @@ Lapaq Playbook adalah website panduan produk yang membuat tim marketing internal
 
 Sumber acuan: `docs/blueprint.md`. Jika berbeda dengan dokumen Blueprint asli di Claude Docs, dokumen asli yang berlaku.
 
-Fase 1 sedang berjalan: Langkah 2 (dashboard admin).
+Fase 1 sedang berjalan: Langkah 3 (website).
 
 ## Keputusan kunci (dari blueprint)
 

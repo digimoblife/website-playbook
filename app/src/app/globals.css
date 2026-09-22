@@ -308,6 +308,8 @@ a:hover {
   font-size: 1.25rem;
   color: var(--text);
   text-decoration: none;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .brand:hover {
@@ -339,10 +341,20 @@ a:hover {
   gap: 1rem;
 }
 
+/* min-width: 0 pada item flex yang bisa menggulir ke samping mencegahnya memaksa .navbar-inner
+   (dan lewat itu, seluruh halaman) melebar melebihi layar di ponsel. Baris ini yang menggulir,
+   bukan halaman. */
 .navbar-nav {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  min-width: 0;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+.navbar-nav > * {
+  flex-shrink: 0;
 }
 
 .nav-link {
@@ -923,4 +935,150 @@ input[type="file"] {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+}
+
+/* ---------- Langkah 3: website ---------- */
+
+.goal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.goal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+  min-height: 44px;
+}
+
+.goal-card:hover {
+  border-color: var(--control-border);
+  background: var(--accent-tint);
+}
+
+.goal-card h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.catalog-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+  min-height: 44px;
+}
+
+.catalog-card:hover {
+  border-color: var(--control-border);
+  background: var(--accent-tint);
+}
+
+.catalog-card h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+  color: var(--text);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  background: var(--accent-tint);
+}
+
+.chip[aria-pressed="true"],
+.chip[aria-current="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.chip:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.breadcrumb {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--muted);
+}
+
+.breadcrumb a:hover {
+  color: var(--accent-dark);
+}
+
+.preview-banner {
+  background: var(--accent-tint);
+  border-top: 1px solid var(--line);
+}
+
+.preview-banner-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0.625rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+
+.preview-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .goal-grid,
+  .catalog-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

@@ -7,6 +7,7 @@ import {
   sqliteTable,
   text,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import {
   AUDIENCES,
@@ -186,5 +187,9 @@ export const pageFeedback = sqliteTable(
     helpful: integer("helpful", { mode: "boolean" }).notNull(),
     at: integer("at", { mode: "timestamp_ms" }).notNull().default(nowMs),
   },
-  (t) => [index("page_feedback_entry_id_idx").on(t.entryId)],
+  (t) => [
+    index("page_feedback_entry_id_idx").on(t.entryId),
+    // Satu pengguna hanya punya satu suara per entri; menjawab lagi meng-upsert baris ini.
+    uniqueIndex("page_feedback_entry_user_unq").on(t.entryId, t.userId),
+  ],
 );

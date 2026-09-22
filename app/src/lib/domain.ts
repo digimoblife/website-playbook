@@ -33,6 +33,17 @@ export const NEEDS_TAGS = [
 export type NeedsTagKey = (typeof NEEDS_TAGS)[number]["key"];
 export const NEEDS_TAG_KEYS: readonly NeedsTagKey[] = NEEDS_TAGS.map((t) => t.key);
 
+/** Mem-parse kolom entries.needs_tags (larik JSON) menjadi tag yang dikenal, terurut baku. */
+export function parseNeedsTags(json: string): NeedsTagKey[] {
+  try {
+    const value: unknown = JSON.parse(json);
+    if (!Array.isArray(value)) return [];
+    return NEEDS_TAG_KEYS.filter((key) => value.includes(key));
+  } catch {
+    return [];
+  }
+}
+
 // Batas isian. Dipakai server (validasi) dan editor (atribut maxLength).
 export const LIMITS = {
   title: 120,

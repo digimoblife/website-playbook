@@ -16,6 +16,7 @@ import {
   LIMITS,
   NATURES,
   NEEDS_TAG_KEYS,
+  parseNeedsTags,
   STATUSES,
   type Audience,
   type Kind,
@@ -175,16 +176,6 @@ export function parseEntryInput(raw: unknown): Result<{ input: EntryInput }> {
   };
 }
 
-export function parseTags(json: string): NeedsTagKey[] {
-  try {
-    const value: unknown = JSON.parse(json);
-    if (!Array.isArray(value)) return [];
-    return NEEDS_TAG_KEYS.filter((key) => value.includes(key));
-  } catch {
-    return [];
-  }
-}
-
 // ---------- Membaca ----------
 
 export function loadEditable(db: DbLike, id: number): EditableEntry | null {
@@ -217,7 +208,7 @@ export function loadEditable(db: DbLike, id: number): EditableEntry | null {
     nature: row.nature,
     status: row.status,
     audience: row.audience,
-    needsTags: parseTags(row.needsTags),
+    needsTags: parseNeedsTags(row.needsTags),
     steps,
     images,
     isPublished: row.isPublished,

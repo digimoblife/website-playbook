@@ -2,7 +2,7 @@
 
 Website panduan produk Lapaq untuk tim marketing internal dan partner JV, dengan dashboard admin untuk Product Manager. Rancangan lengkap ada di `../docs/blueprint.md`.
 
-**Status: Fase 1, Langkah 2 (dashboard admin).** Sudah ada: database, login dan peran, aturan akses konten, dan dashboard admin lengkap: Inbox, Semua entri, editor entri (isi, langkah bergambar, status, audiens, publish, tarik kembali, arsip), Arsip, Riwayat, unggah gambar manual, peta fitur awal, serta pengelolaan pengguna (buat, ubah, reset kata sandi, nonaktifkan). Belum ada: halaman website untuk pembaca (beranda, Apa yang baru, katalog, halaman fitur), pratinjau, screenshot otomatis, webhook GitHub, AI, dan deployment.
+**Status: Fase 1, Langkah 3 (website).** Sudah ada: database, login dan peran, aturan akses konten, dashboard admin lengkap, dan sekarang website untuk pembaca: Beranda, Apa yang baru, Katalog (dengan filter tag), halaman fitur, umpan balik "Apakah halaman ini membantu?", dan pratinjau "Lihat sebagai" untuk Admin. Belum ada: FAQ, tombol "Coba di toko demo", screenshot otomatis, webhook GitHub, AI, dan deployment.
 
 Teknologi: Next.js 16 (App Router, TypeScript), SQLite lewat Drizzle ORM, argon2id untuk kata sandi, Vitest untuk tes.
 
@@ -32,7 +32,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-Sudah punya database dari Langkah 1? Cukup jalankan `npm run db:migrate`. Migrasi Langkah 2 bersifat aditif (menambah dua kolom dan dua pemicu) dan tidak menghapus atau mengubah data yang ada.
+Sudah punya database dari langkah sebelumnya? Cukup jalankan `npm run db:migrate`. Setiap migrasi (Langkah 2: dua kolom dan dua pemicu; Langkah 3: indeks unik pada umpan balik halaman) bersifat aditif dan tidak menghapus atau mengubah data yang ada.
 
 Setelah seed berhasil, **hapus `ADMIN_PASSWORD` dari `.env.local`**. Seed aman dijalankan ulang: akun yang sudah ada tidak diubah, dan kata sandi tidak pernah dicetak.
 
@@ -69,7 +69,15 @@ npm run typecheck   # pemeriksaan tipe TypeScript
 npm run lint        # ESLint
 ```
 
-Semua tes memakai database SQLite di memori dan folder sementara; database dan gambar Anda tidak tersentuh. Yang terpenting: `access.test.ts` dan `entries-access.test.ts` (matriks 3 peran × 3 status × 3 audiens × terbit/draf, dan Partner tidak pernah menerima `cannot_promise`), `actions.test.ts` (setiap Server Action menolak selain Admin dan database tetap utuh), `routes.test.ts` dan `media.test.ts` (akses, unggah, dan path traversal gambar), `admin-entries.test.ts` (aturan publish, arsip, dan pemicu database).
+Semua tes memakai database SQLite di memori dan folder sementara; database dan gambar Anda tidak tersentuh. Yang terpenting: `access.test.ts` dan `entries-access.test.ts` (matriks 3 peran × 3 status × 3 audiens × terbit/draf, dan Partner tidak pernah menerima `cannot_promise`), `actions.test.ts` (setiap Server Action menolak selain Admin dan database tetap utuh), `routes.test.ts` dan `media.test.ts` (akses, unggah, dan path traversal gambar), `admin-entries.test.ts` (aturan publish, arsip, dan pemicu database), `entries-detail.test.ts` (langkah dan galeri hanya untuk yang berhak), `preview.test.ts` (cookie pratinjau diabaikan untuk akun bukan Admin), `feedback.test.ts` (upsert umpan balik, Admin ditolak), dan `website-pages.test.ts` (halaman website benar-benar dirender ke HTML dan diperiksa, bukan hanya datanya).
+
+## Website dan pratinjau Admin
+
+Marketing dan Partner yang login mendapat website biasa (`/`, `/baru`, `/katalog`, `/entri/[slug]`), memakai `lib/entries.ts` sebagai satu-satunya sumber data (lihat "Aturan akses konten"). Halaman fitur tidak memuat FAQ maupun tombol "Coba di toko demo" (sengaja ditunda).
+
+**Pratinjau "Lihat sebagai".** Admin yang membuka website tidak melihat pandangan Admin (semua entri): ia otomatis dipetakan ke viewer sintetis Marketing atau Partner, dengan default "Marketing" dan bisa dipilih lewat pita di navbar. Nilainya disimpan di cookie `pratinjau_peran` (non-`httpOnly`, `SameSite=lax`, berumur 1 hari), dan **diabaikan total** untuk akun Marketing/Partner sungguhan — mereka selalu memakai peran akun mereka sendiri, apa pun isi cookie itu (lihat `src/lib/preview.ts`).
+
+Umpan balik halaman hanya berlaku untuk akun Marketing/Partner sungguhan; Admin (termasuk saat berpratinjau) tidak melihat kontrolnya dan ditolak bila mencoba mengirimkannya langsung.
 
 ## Aturan akses konten
 
@@ -88,11 +96,13 @@ Entri yang diarsipkan hanya terlihat oleh Admin dan tidak pernah terbit (dijaga 
 ```
 app/
 ├── src/
-│   ├── app/            halaman, server action, dan rute (masuk, admin/*, media/[id])
-│   ├── components/     navbar, sidebar admin, badge status, tombol aksi
+│   ├── app/            halaman, server action, dan rute (masuk, admin/*, (situs)/*, media/[id])
+│   ├── components/     navbar, preview-switch, sidebar admin, badge status, tombol aksi
 │   ├── db/             skema Drizzle dan koneksi SQLite
 │   ├── lib/            access (aturan akses), publish (aturan publish), admin-entries,
-│   │                   entries (baca untuk pembaca), media, users, auth, password, dal, peta-fitur
+│   │                   entries (baca untuk pembaca, termasuk detail langkah/galeri),
+│   │                   preview (pratinjau Admin), feedback, media, users, auth, password,
+│   │                   dal, peta-fitur
 │   └── proxy.ts        pengalihan awal ke /masuk bila tanpa cookie sesi
 ├── drizzle/            berkas migrasi (ikut git)
 ├── scripts/            migrate, seed-admin, seed-peta, admin-reset

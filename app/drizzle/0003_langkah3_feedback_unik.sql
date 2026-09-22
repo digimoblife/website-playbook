@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `page_feedback_entry_user_unq` ON `page_feedback` (`entry_id`,`user_id`);
