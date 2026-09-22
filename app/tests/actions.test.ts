@@ -206,6 +206,35 @@ describe("Server Action: perilaku khusus untuk Admin", () => {
     expect(snapshot(db)).toBe(before);
   });
 
+  it("saveEntryAction menolak langkah yang menautkan gambar milik entri LAIN, dan database tidak berubah", async () => {
+    const foreignImage = db
+      .insert(media)
+      .values({ entryId: w.published, kind: "screenshot", source: "manual", filePath: "milik-entri-lain.png" })
+      .returning()
+      .get();
+    const before = snapshot(db);
+    const res = await saveEntryAction(
+      w.draft,
+      validInput({ title: "Draf Siap", slug: "draf-siap", steps: [{ text: "Pinjam gambar entri lain", mediaId: foreignImage.id }] }),
+    );
+    expect(res).toEqual({ ok: false, error: "Gambar yang dipilih untuk langkah tidak ditemukan pada entri ini." });
+    expect(snapshot(db)).toBe(before);
+  });
+
+  it("saveEntryAction menerima langkah yang menautkan gambar milik entri yang SAMA", async () => {
+    const ownImage = db
+      .insert(media)
+      .values({ entryId: w.draft, kind: "screenshot", source: "manual", filePath: "milik-sendiri.png" })
+      .returning()
+      .get();
+    const res = await saveEntryAction(
+      w.draft,
+      validInput({ title: "Draf Siap", slug: "draf-siap", steps: [{ text: "Pakai gambar sendiri", mediaId: ownImage.id }] }),
+    );
+    expect(res).toMatchObject({ ok: true, message: "Perubahan disimpan." });
+    expect(res.ok && res.entry?.steps).toEqual([{ text: "Pakai gambar sendiri", mediaId: ownImage.id }]);
+  });
+
   it("publish lewat aksi menerapkan aturan publish: yang kurang disebut", async () => {
     saveEntry(w.draft, validInput({ title: "Draf Siap", slug: "draf-siap", summary: "", steps: [] }), w.admin.id, db);
     const res = await publishEntryAction(undefined, fd({ id: w.draft }));

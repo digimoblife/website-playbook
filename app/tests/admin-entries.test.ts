@@ -19,7 +19,7 @@ import {
 } from "@/lib/admin-entries";
 import { getEntryBySlugFor, listEntriesFor } from "@/lib/entries";
 import { slugify } from "@/lib/slug";
-import { insertUserRow, makeTestDb, validInput } from "./helpers";
+import { insertUserRow, makeTestDb, snapshot, validInput } from "./helpers";
 
 let db: AppDb;
 let adminId: number;
@@ -258,11 +258,77 @@ describe("saveEntry: penyimpanan dan riwayat", () => {
     expect(getEditableEntry(id, db)!.steps[0]).toEqual({ text: "Dengan gambar", mediaId: null });
   });
 
-  it("gambar milik entri LAIN tidak boleh dipakai di langkah", () => {
+  it("gambar milik entri LAIN tidak boleh dipakai di langkah: ditolak dengan pesan jelas, dan database tidak berubah", () => {
     const a = newEntry("A");
     const b = newEntry("B");
     const m = db.insert(media).values({ entryId: a, kind: "screenshot", source: "manual", filePath: "x.png" }).returning().get();
-    expect(saveEntry(b, validInput({ slug: "b", steps: [{ text: "L", mediaId: m.id }] }), adminId, db)).toMatchObject({ ok: false });
+    const before = snapshot(db);
+    const r = saveEntry(b, validInput({ slug: "b", steps: [{ text: "L", mediaId: m.id }] }), adminId, db);
+    expect(r).toEqual({ ok: false, error: "Gambar yang dipilih untuk langkah tidak ditemukan pada entri ini." });
+    expect(snapshot(db)).toBe(before); // tidak ada baris yang berubah: entri B, langkahnya, dan riwayat tetap sama
+  });
+
+  it("gambar milik entri LAIN dicampur dengan gambar milik entri sendiri: seluruh penyimpanan ditolak (bukan sebagian)", () => {
+    const a = newEntry("A");
+    const b = newEntry("B");
+    const foreign = db.insert(media).values({ entryId: a, kind: "screenshot", source: "manual", filePath: "asing.png" }).returning().get();
+    const own = db.insert(media).values({ entryId: b, kind: "screenshot", source: "manual", filePath: "sendiri.png" }).returning().get();
+    const before = snapshot(db);
+    const r = saveEntry(
+      b,
+      validInput({
+        slug: "b",
+        steps: [
+          { text: "Langkah dengan gambar sendiri", mediaId: own.id },
+          { text: "Langkah dengan gambar asing", mediaId: foreign.id },
+        ],
+      }),
+      adminId,
+      db,
+    );
+    expect(r).toMatchObject({ ok: false });
+    expect(snapshot(db)).toBe(before);
+  });
+
+  it("gambar milik entri yang SAMA diterima: satu langkah, beberapa langkah, dan gambar yang sama dipakai ulang di dua langkah", () => {
+    const id = newEntry();
+    const m1 = db.insert(media).values({ entryId: id, kind: "screenshot", source: "manual", filePath: "a.png" }).returning().get();
+    const m2 = db.insert(media).values({ entryId: id, kind: "screenshot", source: "manual", filePath: "b.png" }).returning().get();
+
+    const r1 = saveEntry(id, validInput({ steps: [{ text: "Satu gambar", mediaId: m1.id }] }), adminId, db);
+    expect(r1).toMatchObject({ ok: true, changed: true });
+    expect(getEditableEntry(id, db)!.steps).toEqual([{ text: "Satu gambar", mediaId: m1.id }]);
+
+    const r2 = saveEntry(
+      id,
+      validInput({
+        steps: [
+          { text: "Langkah pertama", mediaId: m1.id },
+          { text: "Langkah kedua", mediaId: m2.id },
+          { text: "Langkah ketiga, gambar dipakai ulang", mediaId: m1.id },
+        ],
+      }),
+      adminId,
+      db,
+    );
+    expect(r2).toMatchObject({ ok: true, changed: true });
+    expect(getEditableEntry(id, db)!.steps).toEqual([
+      { text: "Langkah pertama", mediaId: m1.id },
+      { text: "Langkah kedua", mediaId: m2.id },
+      { text: "Langkah ketiga, gambar dipakai ulang", mediaId: m1.id },
+    ]);
+  });
+
+  it("entri lain yang punya gambar bernomor id sama persis (kebetulan) tetap tidak boleh saling meminjam", () => {
+    // Dua entri, masing-masing punya satu gambar; gambar entri A tidak boleh dipakai entri B
+    // walau keduanya berstatus dan berisi identik selain gambarnya.
+    const a = newEntry("Kembar A");
+    const b = newEntry("Kembar B");
+    const mA = db.insert(media).values({ entryId: a, kind: "screenshot", source: "manual", filePath: "a.png" }).returning().get();
+    db.insert(media).values({ entryId: b, kind: "screenshot", source: "manual", filePath: "b.png" }).returning().get();
+    const before = snapshot(db);
+    expect(saveEntry(b, validInput({ slug: "kembar-b", steps: [{ text: "Pinjam gambar A", mediaId: mA.id }] }), adminId, db)).toMatchObject({ ok: false });
+    expect(snapshot(db)).toBe(before);
   });
 });
 
