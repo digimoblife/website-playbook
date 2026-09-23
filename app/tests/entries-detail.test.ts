@@ -39,15 +39,19 @@ function makeEntry(
 }
 
 describe("getEntryDetailBySlugFor: akses ditolak", () => {
-  it("Marketing/Partner untuk entri Internal: null, bukan objek berisi langkah/gambar", () => {
+  it("Marketing/Partner untuk entri Internal: null, bukan objek berisi langkah/gambar/FAQ", () => {
     // Entri Internal tidak boleh dipublish sama sekali (aturan Langkah 2b), jadi publish: false.
-    const id = makeEntry("internal-saja", { status: "internal", audience: "internal" }, { publish: false });
+    const id = makeEntry(
+      "internal-saja",
+      { status: "internal", audience: "internal", faqs: [{ question: "Rahasia?", answer: "Ya" }] },
+      { publish: false },
+    );
     db.insert(media).values({ entryId: id, kind: "screenshot", source: "manual", filePath: "x.png" }).run();
 
     for (const role of ["marketing", "partner"] as Role[]) {
       const result = getEntryDetailBySlugFor({ role }, "internal-saja", db);
       expect(result).toBeNull();
-      // Bukan sekadar steps/images kosong: seluruh hasilnya null.
+      // Bukan sekadar steps/images/faqs kosong: seluruh hasilnya null.
       expect(result).not.toEqual(expect.objectContaining({ steps: [] }));
     }
   });
@@ -61,6 +65,7 @@ describe("getEntryDetailBySlugFor: akses ditolak", () => {
     expect(result).toBeNull();
     expect(queries.some((q) => q.includes("entry_steps"))).toBe(false);
     expect(queries.some((q) => q.toLowerCase().includes("from `media`") || q.includes('"media"'))).toBe(false);
+    expect(queries.some((q) => q.includes("entry_faqs"))).toBe(false);
   });
 
   it("entri yang belum terbit: null untuk Marketing/Partner walau status dan audiens sudah lengkap", () => {
@@ -194,5 +199,31 @@ describe("getEntryDetailBySlugFor: akses diterima", () => {
     makeEntry("lengkap", { status: "siap", audience: "partner", summary: "Ringkasan uji" });
     const detail = getEntryDetailBySlugFor({ role: "partner" }, "lengkap", db);
     expect(detail).toMatchObject({ slug: "lengkap", summary: "Ringkasan uji", status: "siap", audience: "partner" });
+  });
+
+  it("FAQ terurut posisi, dan tampil sama untuk Marketing maupun Partner (bukan bagian yang dibatasi peran)", () => {
+    makeEntry("dengan-faq", {
+      status: "siap",
+      audience: "partner",
+      faqs: [
+        { question: "Kedua?", answer: "Jawaban kedua" },
+        { question: "Pertama?", answer: "Jawaban pertama" },
+      ],
+    });
+    // saveEntry menyimpan sesuai urutan input; urutan "Kedua" lalu "Pertama" sengaja dipertahankan
+    // untuk membuktikan bahwa urutan yang dibaca sesuai posisi tersimpan, bukan diurutkan ulang.
+    for (const role of ["marketing", "partner"] as Role[]) {
+      const detail = getEntryDetailBySlugFor({ role }, "dengan-faq", db);
+      expect(detail!.faqs, role).toEqual([
+        { question: "Kedua?", answer: "Jawaban kedua" },
+        { question: "Pertama?", answer: "Jawaban pertama" },
+      ]);
+    }
+  });
+
+  it("entri tanpa FAQ: faqs kosong, bukan galat", () => {
+    makeEntry("tanpa-faq", { status: "siap", audience: "partner", faqs: [] });
+    const detail = getEntryDetailBySlugFor({ role: "partner" }, "tanpa-faq", db);
+    expect(detail!.faqs).toEqual([]);
   });
 });

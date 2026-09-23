@@ -35,6 +35,7 @@ import { slugify } from "@/lib/slug";
 import { ImageManager } from "./image-manager";
 
 type StepState = { key: number; text: string; mediaId: number | null };
+type FaqState = { key: number; question: string; answer: string };
 type FormState = {
   title: string;
   slug: string;
@@ -51,6 +52,7 @@ type FormState = {
   audience: Audience;
   needsTags: NeedsTagKey[];
   steps: StepState[];
+  faqs: FaqState[];
 };
 
 function toForm(entry: EditableEntry): FormState {
@@ -71,18 +73,20 @@ function toForm(entry: EditableEntry): FormState {
     needsTags: entry.needsTags,
     // Kunci deterministik (urutan muat): server dan klien harus menghasilkan id yang sama saat hidrasi.
     steps: entry.steps.map((step, index) => ({ key: index + 1, ...step })),
+    faqs: entry.faqs.map((faq, index) => ({ key: index + 1, ...faq })),
   };
 }
 
 /** Isi yang dikirim ke server. Tautan gambar yang sudah dihapus dilepas. */
 function toPayload(form: FormState, imageIds: Set<number>) {
-  const { steps, ...rest } = form;
+  const { steps, faqs, ...rest } = form;
   return {
     ...rest,
     steps: steps.map((step) => ({
       text: step.text,
       mediaId: step.mediaId !== null && imageIds.has(step.mediaId) ? step.mediaId : null,
     })),
+    faqs: faqs.map((faq) => ({ question: faq.question, answer: faq.answer })),
   };
 }
 
@@ -236,6 +240,38 @@ export function EntryEditor({ entry }: { entry: EditableEntry }) {
       const steps = [...current.steps];
       [steps[from], steps[to]] = [steps[to], steps[from]];
       return { ...current, steps };
+    });
+
+  const updateFaq = (key: number, patch: Partial<FaqState>) =>
+    setForm((current) => ({
+      ...current,
+      faqs: current.faqs.map((faq) => (faq.key === key ? { ...faq, ...patch } : faq)),
+    }));
+
+  const addFaq = () =>
+    setForm((current) =>
+      current.faqs.length >= LIMITS.faqs
+        ? current
+        : {
+            ...current,
+            faqs: [
+              ...current.faqs,
+              { key: Math.max(0, ...current.faqs.map((faq) => faq.key)) + 1, question: "", answer: "" },
+            ],
+          },
+    );
+
+  const removeFaq = (key: number) =>
+    setForm((current) => ({ ...current, faqs: current.faqs.filter((faq) => faq.key !== key) }));
+
+  const moveFaq = (key: number, direction: -1 | 1) =>
+    setForm((current) => {
+      const from = current.faqs.findIndex((faq) => faq.key === key);
+      const to = from + direction;
+      if (from < 0 || to < 0 || to >= current.faqs.length) return current;
+      const faqs = [...current.faqs];
+      [faqs[from], faqs[to]] = [faqs[to], faqs[from]];
+      return { ...current, faqs };
     });
 
   const toggleTag = (tag: NeedsTagKey) =>
@@ -474,6 +510,94 @@ export function EntryEditor({ entry }: { entry: EditableEntry }) {
               </button>
               {form.steps.length >= LIMITS.steps && (
                 <span className="note"> Sudah {LIMITS.steps} langkah (batas maksimal).</span>
+              )}
+            </section>
+
+            <section className="card" aria-labelledby="bagian-faq">
+              <h2 id="bagian-faq">Pertanyaan yang sering diajukan</h2>
+              <p className="note" style={{ marginBottom: "1rem" }}>
+                Pertanyaan calon pelanggan beserta jawabannya, maksimal {LIMITS.faqs} pertanyaan. Tidak
+                wajib diisi untuk publish.
+              </p>
+              {form.faqs.length === 0 ? (
+                <p className="muted">Belum ada FAQ.</p>
+              ) : (
+                <ol className="step-list">
+                  {form.faqs.map((faq, index) => {
+                    const n = index + 1;
+                    return (
+                      <li key={faq.key} className="step-row">
+                        <span className="step-number" aria-hidden="true">
+                          {n}
+                        </span>
+                        <div>
+                          <label htmlFor={`faq-pertanyaan-${faq.key}`}>Pertanyaan {n}</label>
+                          <input
+                            id={`faq-pertanyaan-${faq.key}`}
+                            className="input"
+                            maxLength={LIMITS.faqQuestion}
+                            value={faq.question}
+                            onChange={(e) => updateFaq(faq.key, { question: e.target.value })}
+                          />
+                          <span className="field-counter" aria-hidden="true">
+                            {faq.question.length}/{LIMITS.faqQuestion}
+                          </span>
+                          <label htmlFor={`faq-jawaban-${faq.key}`}>Jawaban {n}</label>
+                          <textarea
+                            id={`faq-jawaban-${faq.key}`}
+                            className="textarea"
+                            rows={3}
+                            maxLength={LIMITS.faqAnswer}
+                            value={faq.answer}
+                            onChange={(e) => updateFaq(faq.key, { answer: e.target.value })}
+                          />
+                          <span className="field-counter" aria-hidden="true">
+                            {faq.answer.length}/{LIMITS.faqAnswer}
+                          </span>
+                          <div className="step-controls">
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              onClick={() => moveFaq(faq.key, -1)}
+                              disabled={index === 0}
+                              aria-label={`Naikkan FAQ ${n}`}
+                            >
+                              Naik
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              onClick={() => moveFaq(faq.key, 1)}
+                              disabled={index === form.faqs.length - 1}
+                              aria-label={`Turunkan FAQ ${n}`}
+                            >
+                              Turun
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-danger"
+                              onClick={() => removeFaq(faq.key)}
+                              aria-label={`Hapus FAQ ${n}`}
+                            >
+                              Hapus
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={addFaq}
+                disabled={form.faqs.length >= LIMITS.faqs}
+              >
+                Tambah FAQ
+              </button>
+              {form.faqs.length >= LIMITS.faqs && (
+                <span className="note"> Sudah {LIMITS.faqs} FAQ (batas maksimal).</span>
               )}
             </section>
 

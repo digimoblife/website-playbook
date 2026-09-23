@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import type { Logger } from "drizzle-orm/logger";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { createDb, type AppDb } from "@/db/client";
-import { entries, entryHistory, entrySteps, media, sessions, users } from "@/db/schema";
+import { entries, entryFaqs, entryHistory, entrySteps, media, sessions, users } from "@/db/schema";
 import { createSession } from "@/lib/auth";
 import type { EntryInput } from "@/lib/admin-entries";
 import type { Audience, Role, Status } from "@/lib/domain";
@@ -90,6 +90,7 @@ export function validInput(over: Partial<EntryInput> = {}): EntryInput {
     audience: "partner",
     needsTags: [],
     steps: [{ text: "Langkah satu", mediaId: null }],
+    faqs: [],
     ...over,
   };
 }
@@ -100,6 +101,7 @@ export function snapshot(db: AppDb): string {
     users: db.select().from(users).orderBy(users.id).all(),
     entries: db.select().from(entries).orderBy(entries.id).all(),
     steps: db.select().from(entrySteps).orderBy(entrySteps.id).all(),
+    faqs: db.select().from(entryFaqs).orderBy(entryFaqs.id).all(),
     media: db.select().from(media).orderBy(media.id).all(),
     history: db.select().from(entryHistory).orderBy(entryHistory.id).all(),
     sessions: db.select().from(sessions).orderBy(sessions.id).all(),

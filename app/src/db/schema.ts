@@ -158,6 +158,20 @@ export const entrySteps = sqliteTable(
   (t) => [unique("entry_steps_entry_position_unq").on(t.entryId, t.position)],
 );
 
+export const entryFaqs = sqliteTable(
+  "entry_faqs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    entryId: integer("entry_id")
+      .notNull()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    question: text("question").notNull(),
+    answer: text("answer").notNull(),
+  },
+  (t) => [unique("entry_faqs_entry_position_unq").on(t.entryId, t.position)],
+);
+
 export const entryHistory = sqliteTable(
   "entry_history",
   {

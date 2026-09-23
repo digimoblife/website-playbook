@@ -8,7 +8,7 @@
 // SEBELUM menulis apa pun, jadi kegagalan tidak meninggalkan perubahan setengah jadi.
 import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql, type SQL } from "drizzle-orm";
 import { getDb, type AppDb } from "@/db/client";
-import { entries, entryHistory, entrySteps, media, users } from "@/db/schema";
+import { entries, entryFaqs, entryHistory, entrySteps, media, users } from "@/db/schema";
 import { isVisibleToReaders, readersWhoCanView } from "@/lib/access";
 import {
   AUDIENCES,
@@ -37,6 +37,7 @@ export type Result<T extends object = object> = ({ ok: true } & T) | Fail;
 const fail = (error: string): Fail => ({ ok: false, error });
 
 export type StepInput = { text: string; mediaId: number | null };
+export type FaqInput = { question: string; answer: string };
 
 export type EntryInput = {
   title: string;
@@ -54,6 +55,7 @@ export type EntryInput = {
   audience: Audience;
   needsTags: NeedsTagKey[];
   steps: StepInput[];
+  faqs: FaqInput[];
 };
 
 export type ImageInfo = { id: number; kind: MediaKind; createdAt: Date };
@@ -154,6 +156,27 @@ export function parseEntryInput(raw: unknown): Result<{ input: EntryInput }> {
     steps.push({ text, mediaId: mediaId as number | null });
   }
 
+  if (!Array.isArray(r.faqs)) return fail("Pertanyaan yang sering diajukan tidak valid.");
+  if (r.faqs.length > LIMITS.faqs) {
+    return fail(`Maksimal ${LIMITS.faqs} pertanyaan yang sering diajukan per entri.`);
+  }
+  const faqs: FaqInput[] = [];
+  for (const [index, item] of r.faqs.entries()) {
+    if (typeof item !== "object" || item === null) return fail(`FAQ ${index + 1} tidak valid.`);
+    const faq = item as Record<string, unknown>;
+    const question = oneLine(faq.question);
+    if (!question) return fail(`FAQ ${index + 1}: pertanyaan masih kosong.`);
+    if (question.length > LIMITS.faqQuestion) {
+      return fail(`FAQ ${index + 1}: pertanyaan maksimal ${LIMITS.faqQuestion} karakter.`);
+    }
+    const answer = clean(faq.answer);
+    if (!answer) return fail(`FAQ ${index + 1}: jawaban masih kosong.`);
+    if (answer.length > LIMITS.faqAnswer) {
+      return fail(`FAQ ${index + 1}: jawaban maksimal ${LIMITS.faqAnswer} karakter.`);
+    }
+    faqs.push({ question, answer });
+  }
+
   return {
     ok: true,
     input: {
@@ -172,6 +195,7 @@ export function parseEntryInput(raw: unknown): Result<{ input: EntryInput }> {
       audience: r.audience as Audience,
       needsTags,
       steps,
+      faqs,
     },
   };
 }
@@ -193,6 +217,12 @@ export function loadEditable(db: DbLike, id: number): EditableEntry | null {
     .where(eq(media.entryId, id))
     .orderBy(asc(media.id))
     .all();
+  const faqs = db
+    .select({ question: entryFaqs.question, answer: entryFaqs.answer })
+    .from(entryFaqs)
+    .where(eq(entryFaqs.entryId, id))
+    .orderBy(asc(entryFaqs.position))
+    .all();
   return {
     id: row.id,
     slug: row.slug,
@@ -210,6 +240,7 @@ export function loadEditable(db: DbLike, id: number): EditableEntry | null {
     audience: row.audience,
     needsTags: parseNeedsTags(row.needsTags),
     steps,
+    faqs,
     images,
     isPublished: row.isPublished,
     publishedAt: row.publishedAt,
@@ -335,6 +366,9 @@ export function saveEntry(
     if (JSON.stringify(current.steps) !== JSON.stringify(input.steps)) {
       sections.push("Cara pakai");
     }
+    if (JSON.stringify(current.faqs) !== JSON.stringify(input.faqs)) {
+      sections.push("Pertanyaan yang sering diajukan");
+    }
     const statusChanged = current.status !== input.status;
     const audienceChanged = current.audience !== input.audience;
 
@@ -373,6 +407,20 @@ export function saveEntry(
             position: index + 1,
             text: step.text,
             mediaId: step.mediaId,
+          })),
+        )
+        .run();
+    }
+
+    tx.delete(entryFaqs).where(eq(entryFaqs.entryId, id)).run();
+    if (input.faqs.length > 0) {
+      tx.insert(entryFaqs)
+        .values(
+          input.faqs.map((faq, index) => ({
+            entryId: id,
+            position: index + 1,
+            question: faq.question,
+            answer: faq.answer,
           })),
         )
         .run();

@@ -5,6 +5,7 @@ import { CopyButton } from "@/components/copy-button";
 import { FeedbackWidget } from "@/components/feedback-widget";
 import { StatusBadge } from "@/components/status-badge";
 import { requireUser } from "@/lib/dal";
+import { getDemoStoreUrl } from "@/lib/demo-store";
 import { getEntryDetailBySlugFor, type EntryDetailForReader } from "@/lib/entries";
 import { formatDateTime } from "@/lib/format";
 import { getWebsiteViewer } from "@/lib/preview";
@@ -45,6 +46,8 @@ export default async function EntriPage({ params }: { params: Promise<Params> })
   const cannotPromise = cannotPromiseText(entry);
   // Umpan balik mengukur pembaca sungguhan; Admin (asli maupun berpratinjau) tidak melihat ini.
   const canGiveFeedback = user.role === "marketing" || user.role === "partner";
+  // Tombol "Coba di toko demo": tersembunyi total bila tidak diset atau tidak valid (lib/demo-store.ts).
+  const demoStoreUrl = getDemoStoreUrl();
 
   return (
     <div className="stack">
@@ -58,6 +61,18 @@ export default async function EntriPage({ params }: { params: Promise<Params> })
         <h1 style={{ margin: "0.5rem 0 0" }}>{entry.title}</h1>
         {entry.summary && (
           <p style={{ margin: "0.5rem 0 0", fontSize: "1.0625rem" }}>{entry.summary}</p>
+        )}
+        {demoStoreUrl && (
+          <p style={{ margin: "1rem 0 0" }}>
+            <a
+              href={demoStoreUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-primary"
+            >
+              Coba di toko demo (buka situs lain)
+            </a>
+          </p>
         )}
       </section>
 
@@ -146,6 +161,20 @@ export default async function EntriPage({ params }: { params: Promise<Params> })
           <h2>Materi siap pakai</h2>
           <p style={{ whiteSpace: "pre-line" }}>{entry.promoText}</p>
           <CopyButton text={entry.promoText} />
+        </section>
+      )}
+
+      {entry.faqs.length > 0 && (
+        <section className="card" aria-labelledby="faq-heading">
+          <h2 id="faq-heading">Pertanyaan yang sering diajukan</h2>
+          <dl className="stack">
+            {entry.faqs.map((faq, index) => (
+              <div key={index}>
+                <dt style={{ fontWeight: 600 }}>{faq.question}</dt>
+                <dd style={{ margin: "0.25rem 0 0", whiteSpace: "pre-line" }}>{faq.answer}</dd>
+              </div>
+            ))}
+          </dl>
         </section>
       )}
 

@@ -54,4 +54,7 @@ export const LIMITS = {
   steps: 12,
   imagesPerEntry: 20,
   historyPageSize: 50,
+  faqs: 10,
+  faqQuestion: 200,
+  faqAnswer: 500,
 } as const;

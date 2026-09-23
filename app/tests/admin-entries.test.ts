@@ -136,6 +136,12 @@ describe("saveEntry: validasi", () => {
     ["slug 81 karakter", { slug: "a".repeat(81) }, /Slug hanya boleh/],
     ["slug dengan garis miring", { slug: "a/b" }, /Slug hanya boleh/],
     ["langkah mengacu pada gambar milik entri lain / tidak ada", { steps: [{ text: "L", mediaId: 999 }] }, /Gambar yang dipilih/],
+    ["FAQ tanpa pertanyaan", { faqs: [{ question: "  ", answer: "Jawaban" }] }, /FAQ 1: pertanyaan masih kosong/],
+    ["FAQ tanpa jawaban", { faqs: [{ question: "Pertanyaan?", answer: "  " }] }, /FAQ 1: jawaban masih kosong/],
+    ["FAQ pertanyaan 201 karakter", { faqs: [{ question: "x".repeat(201), answer: "y" }] }, /FAQ 1: pertanyaan maksimal 200/],
+    ["FAQ jawaban 501 karakter", { faqs: [{ question: "x", answer: "y".repeat(501) }] }, /FAQ 1: jawaban maksimal 500/],
+    ["11 FAQ", { faqs: Array.from({ length: 11 }, (_, i) => ({ question: `P${i}`, answer: `J${i}` })) }, /Maksimal 10 pertanyaan yang sering diajukan/],
+    ["FAQ bukan larik", { faqs: "tidak-larik" }, /Pertanyaan yang sering diajukan tidak valid/],
   ];
 
   it.each(cases)("menolak: %s", (_name, over, message) => {
@@ -161,6 +167,29 @@ describe("saveEntry: validasi", () => {
       db,
     );
     expect(r.ok).toBe(true);
+  });
+
+  it("menerima tepat di batas FAQ: pertanyaan 200, jawaban 500, 10 FAQ", () => {
+    const id = newEntry();
+    const r = saveEntry(
+      id,
+      validInput({
+        faqs: Array.from({ length: 10 }, (_, i) => ({
+          question: `${i}`.repeat(1) + "p".repeat(199),
+          answer: "j".repeat(500),
+        })),
+      }),
+      adminId,
+      db,
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  it("entri tanpa FAQ sama sekali tetap valid", () => {
+    const id = newEntry();
+    const r = saveEntry(id, validInput({ faqs: [] }), adminId, db);
+    expect(r.ok).toBe(true);
+    expect(getEditableEntry(id, db)!.faqs).toEqual([]);
   });
 
   it("menolak masukan yang bukan objek", () => {
@@ -230,6 +259,37 @@ describe("saveEntry: penyimpanan dan riwayat", () => {
     const base = validInput();
     saveEntry(id, { ...base, kind: "addon", nature: "update", needsTags: ["mengelola-stok"], steps: [{ text: "Langkah baru", mediaId: null }] }, adminId, db);
     expect(histories(id).at(-1)).toBe("Mengubah: Jenis, Sifat, Tag kebutuhan, Cara pakai");
+  });
+
+  it("FAQ tersimpan dan terbaca kembali sesuai urutan", () => {
+    const id = newEntry();
+    const r = saveEntry(
+      id,
+      validInput({
+        faqs: [
+          { question: "Apakah gratis?", answer: "Ya, gratis." },
+          { question: "Apakah butuh kartu kredit?", answer: "Tidak." },
+        ],
+      }),
+      adminId,
+      db,
+    );
+    expect(r.ok).toBe(true);
+    const e = getEditableEntry(id, db)!;
+    expect(e.faqs).toEqual([
+      { question: "Apakah gratis?", answer: "Ya, gratis." },
+      { question: "Apakah butuh kartu kredit?", answer: "Tidak." },
+    ]);
+  });
+
+  it("riwayat mencatat 'Pertanyaan yang sering diajukan' saat FAQ berubah, dan tidak saat tidak berubah", () => {
+    const id = readyEntry({ faqs: [] });
+    saveEntry(id, validInput({ faqs: [{ question: "P1", answer: "J1" }] }), adminId, db);
+    expect(histories(id).at(-1)).toContain("Pertanyaan yang sering diajukan");
+
+    const countBefore = histories(id).length;
+    saveEntry(id, validInput({ faqs: [{ question: "P1", answer: "J1" }] }), adminId, db);
+    expect(histories(id).length).toBe(countBefore); // tidak ada perubahan sama sekali -> tidak ada baris baru
   });
 
   it("menyimpan tanpa perubahan: tidak ada baris riwayat baru dan updated_at tidak berubah", () => {
@@ -383,6 +443,13 @@ describe("aturan publish", () => {
     const id = readyEntry({ summary: "", steps: [], canPromise: "", cannotPromise: "" });
     const r = rejected(id);
     expect(!r.ok && r.error).toMatch(/Ringkasan, Cara pakai \(minimal satu langkah\), Boleh dijanjikan, Jangan dijanjikan/);
+  });
+
+  it("regresi: entri tanpa FAQ sama sekali tetap boleh dipublish (FAQ bukan syarat publish)", () => {
+    const id = readyEntry({ faqs: [] });
+    const r = rejected(id);
+    expect(r.ok).toBe(true);
+    expect(getEditableEntry(id, db)!.isPublished).toBe(true);
   });
 
   const INVISIBLE_MESSAGE =

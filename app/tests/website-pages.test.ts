@@ -1,7 +1,7 @@
 // Halaman website benar-benar DIRENDER ke HTML (bukan hanya data yang diperiksa), supaya
 // kebocoran seperti "Jangan dijanjikan" muncul di markup untuk Partner benar-benar tertangkap
 // walau suatu saat ada yang lupa memeriksa "cannotPromise" in entry di JSX.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AppDb } from "@/db/client";
@@ -311,5 +311,72 @@ describe("Katalog dan Apa yang baru: tidak pernah menampilkan entri Internal ata
     const unfiltered = renderToStaticMarkup(await KatalogPage({ searchParams: Promise.resolve({}) }));
     expect(unfiltered).toContain("Dengan Tag Stok");
     expect(unfiltered).toContain("Fitur Uji");
+  });
+});
+
+describe("Halaman fitur: bagian 'Pertanyaan yang sering diajukan'", () => {
+  it("FAQ kosong: bagian tidak dirender sama sekali", async () => {
+    state.user = marketing;
+    const html = await renderEntri();
+    expect(html).not.toContain("Pertanyaan yang sering diajukan");
+  });
+
+  it("FAQ terisi: pertanyaan dan jawabannya dirender, untuk Marketing maupun Partner", async () => {
+    const created = createEntry({ title: "Dengan FAQ", actorId: adminId }, db);
+    if (!created.ok) throw new Error();
+    saveEntry(
+      created.id,
+      validInput({
+        title: "Dengan FAQ",
+        slug: "dengan-faq",
+        status: "siap",
+        audience: "partner",
+        faqs: [{ question: "Apakah gratis?", answer: "Ya, gratis." }],
+      }),
+      adminId,
+      db,
+    );
+    publishEntry(created.id, adminId, db);
+
+    for (const user of [marketing, partner]) {
+      state.user = user;
+      const html = await renderEntri("dengan-faq");
+      expect(html, user.role).toContain("Pertanyaan yang sering diajukan");
+      expect(html, user.role).toContain("Apakah gratis?");
+      expect(html, user.role).toContain("Ya, gratis.");
+    }
+  });
+});
+
+describe("Halaman fitur: tombol 'Coba di toko demo'", () => {
+  const ORIGINAL = process.env.DEMO_STORE_URL;
+
+  afterEach(() => {
+    if (ORIGINAL === undefined) delete process.env.DEMO_STORE_URL;
+    else process.env.DEMO_STORE_URL = ORIGINAL;
+  });
+
+  it("DEMO_STORE_URL tidak diset: tombol tidak ada di markup", async () => {
+    delete process.env.DEMO_STORE_URL;
+    state.user = marketing;
+    const html = await renderEntri();
+    expect(html).not.toContain("Coba di toko demo");
+  });
+
+  it("DEMO_STORE_URL tidak valid: tombol tidak ada di markup", async () => {
+    process.env.DEMO_STORE_URL = "bukan-url";
+    state.user = marketing;
+    const html = await renderEntri();
+    expect(html).not.toContain("Coba di toko demo");
+  });
+
+  it("DEMO_STORE_URL valid: tombol ada dan mengarah ke URL yang benar", async () => {
+    process.env.DEMO_STORE_URL = "https://demo.lapaq.id/toko";
+    state.user = marketing;
+    const html = await renderEntri();
+    expect(html).toContain("Coba di toko demo");
+    expect(html).toContain('href="https://demo.lapaq.id/toko"');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noopener noreferrer"');
   });
 });

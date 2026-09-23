@@ -7,7 +7,7 @@
 //     bila perannya tidak berhak, sehingga kesalahan di satu lapis tidak membocorkan data.
 import { and, asc, desc, eq, inArray, isNull, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import { getDb, type AppDb } from "@/db/client";
-import { entries, entrySteps, media } from "@/db/schema";
+import { entries, entryFaqs, entrySteps, media } from "@/db/schema";
 import {
   canSeeCannotPromise,
   canView,
@@ -105,12 +105,15 @@ export function getEntryBySlugFor(
 
 export type EntryStepForReader = { text: string; mediaId: number | null };
 export type GalleryImageForReader = { id: number; kind: MediaKind };
+export type EntryFaqForReader = { question: string; answer: string };
 
 export type EntryDetailForReader = EntryForReader & {
   /** Langkah "Cara pakai", terurut posisi. */
   steps: EntryStepForReader[];
   /** Gambar entri yang tidak ditautkan ke langkah mana pun (galeri di atas). */
   images: GalleryImageForReader[];
+  /** Pertanyaan yang sering diajukan, terurut posisi. Tidak dibatasi peran (beda dari Jangan dijanjikan). */
+  faqs: EntryFaqForReader[];
 };
 
 /**
@@ -152,7 +155,14 @@ export function getEntryDetailBySlugFor(
     .orderBy(asc(media.id))
     .all();
 
-  return { ...entry, steps, images };
+  const faqs = db
+    .select({ question: entryFaqs.question, answer: entryFaqs.answer })
+    .from(entryFaqs)
+    .where(eq(entryFaqs.entryId, entry.id))
+    .orderBy(asc(entryFaqs.position))
+    .all();
+
+  return { ...entry, steps, images, faqs };
 }
 
 /**
