@@ -8,7 +8,7 @@
 // SEBELUM menulis apa pun, jadi kegagalan tidak meninggalkan perubahan setengah jadi.
 import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql, type SQL } from "drizzle-orm";
 import { getDb, type AppDb } from "@/db/client";
-import { entries, entryFaqs, entryHistory, entrySteps, media, users } from "@/db/schema";
+import { entries, entryFaqs, entryHistory, entrySteps, githubImports, media, users } from "@/db/schema";
 import { isVisibleToReaders, readersWhoCanView } from "@/lib/access";
 import {
   AUDIENCES,
@@ -72,11 +72,11 @@ export type EditableEntry = EntryInput & {
 
 // ---------- Validasi input (server tidak pernah memercayai kiriman klien) ----------
 
-function clean(value: unknown): string | null {
+export function clean(value: unknown): string | null {
   return typeof value === "string" ? value.replace(/\r\n?/g, "\n").trim() : null;
 }
 
-function oneLine(value: unknown): string | null {
+export function oneLine(value: unknown): string | null {
   const text = clean(value);
   return text === null ? null : text.replace(/\s+/g, " ");
 }
@@ -302,6 +302,83 @@ export function createEntry(
       .returning({ id: entries.id })
       .get();
     logHistory(tx, row.id, input.actorId, "Membuat entri", now);
+    return { ok: true as const, id: row.id, slug };
+  });
+}
+
+// ---------- Penarikan dari GitHub (Langkah 4-experimental) ----------
+
+export type GithubPullDraft = {
+  title: unknown;
+  summary: unknown;
+  problem: unknown;
+  forWhom: unknown;
+  explanation: unknown;
+  kind: unknown;
+  nature: unknown;
+};
+
+export type GithubPullInfo = { number: number; title: string; url: string };
+
+/**
+ * Membuat entri baru dari draf AI hasil penarikan PR GitHub, dalam SATU transaksi bersama baris
+ * github_imports dan riwayat. status dan audience SELALU "internal" di sini — draft tidak punya
+ * field itu sama sekali, jadi AI tidak mungkin menentukannya (lihat lib/ai-draft.ts).
+ *
+ * PR yang sama boleh ditarik berkali-kali: setiap panggilan membuat entri BARU dan baris
+ * github_imports baru (pr_number sengaja TIDAK unik, lihat db/schema.ts), sehingga suntingan
+ * manual Admin pada entri hasil tarikan sebelumnya tidak pernah tertimpa.
+ */
+export function pullFromGithub(
+  pr: GithubPullInfo,
+  draft: GithubPullDraft,
+  actorId: number,
+  db: AppDb = getDb(),
+): Result<{ id: number; slug: string }> {
+  const title = (oneLine(draft.title) || oneLine(pr.title) || `PR #${pr.number}`).slice(0, LIMITS.title);
+  const summary = (oneLine(draft.summary) ?? "").slice(0, LIMITS.summary);
+  const problem = (clean(draft.problem) ?? "").slice(0, LIMITS.longText);
+  const forWhom = (clean(draft.forWhom) ?? "").slice(0, LIMITS.longText);
+  const explanation = (clean(draft.explanation) ?? "").slice(0, LIMITS.longText);
+  const kind: Kind = KINDS.includes(draft.kind as Kind) ? (draft.kind as Kind) : "core";
+  const nature: Nature = NATURES.includes(draft.nature as Nature) ? (draft.nature as Nature) : "new";
+
+  return db.transaction((tx) => {
+    const slug = uniqueSlug(tx, slugify(title));
+    const now = new Date();
+    const row = tx
+      .insert(entries)
+      .values({
+        slug,
+        title,
+        summary,
+        problem,
+        forWhom,
+        explanation,
+        kind,
+        nature,
+        // Dipaksa, bukan dari draft: entri hasil tarikan AI selalu Internal/Internal.
+        status: "internal",
+        audience: "internal",
+        sourcePrNumber: pr.number,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning({ id: entries.id })
+      .get();
+
+    tx.insert(githubImports)
+      .values({
+        prNumber: pr.number,
+        prTitle: pr.title,
+        prUrl: pr.url,
+        entryId: row.id,
+        actorId,
+        importedAt: now,
+      })
+      .run();
+
+    logHistory(tx, row.id, actorId, `Ditarik dari GitHub PR #${pr.number}: ${pr.title}, draf oleh AI`, now);
     return { ok: true as const, id: row.id, slug };
   });
 }

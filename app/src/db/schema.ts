@@ -98,6 +98,9 @@ export const entries = sqliteTable(
     promoText: text("promo_text").notNull().default(""),
     // Larik JSON berisi tag kebutuhan pelanggan, mis. '["stok","ongkir"]'.
     needsTags: text("needs_tags").notNull().default("[]"),
+    // Nomor PR asal bila entri ini dibuat lewat "Tarik dari GitHub" (Langkah 4-experimental).
+    // Hanya jejak, bukan kunci; satu PR bisa punya beberapa entri (lihat github_imports).
+    sourcePrNumber: integer("source_pr_number"),
     isPublished: integer("is_published", { mode: "boolean" })
       .notNull()
       .default(false),
@@ -206,4 +209,29 @@ export const pageFeedback = sqliteTable(
     // Satu pengguna hanya punya satu suara per entri; menjawab lagi meng-upsert baris ini.
     uniqueIndex("page_feedback_entry_user_unq").on(t.entryId, t.userId),
   ],
+);
+
+// Riwayat penarikan PR dari GitHub (Langkah 4-experimental). SATU BARIS PER PENARIKAN, bukan
+// per PR: pr_number sengaja TIDAK unik, karena PR yang sama boleh ditarik berkali-kali dan
+// setiap penarikan membuat entri baru (suntingan manual Admin pada entri lama tidak pernah
+// tertimpa). entry_id menautkan baris ini ke entri yang dihasilkan penarikan itu, dipakai UI
+// untuk menandai status "sudah/belum ditarik" dan menautkan ke entri-entri hasilnya.
+export const githubImports = sqliteTable(
+  "github_imports",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    prNumber: integer("pr_number").notNull(),
+    prTitle: text("pr_title").notNull(),
+    prUrl: text("pr_url").notNull(),
+    entryId: integer("entry_id")
+      .notNull()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    importedAt: integer("imported_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+    actorId: integer("actor_id")
+      .notNull()
+      .references(() => users.id),
+  },
+  (t) => [index("github_imports_pr_number_idx").on(t.prNumber)],
 );

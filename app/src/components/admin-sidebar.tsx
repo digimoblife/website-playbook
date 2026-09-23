@@ -7,6 +7,7 @@ import { logout } from "@/app/actions/logout";
 const MENU = [
   { href: "/admin", label: "Inbox" },
   { href: "/admin/entri", label: "Semua entri" },
+  { href: "/admin/github", label: "Tarik dari GitHub" },
   { href: "/admin/arsip", label: "Arsip" },
   { href: "/admin/riwayat", label: "Riwayat" },
   { href: "/admin/pengguna", label: "Pengguna" },
