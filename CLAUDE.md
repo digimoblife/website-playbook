@@ -55,6 +55,7 @@ lapaq-playbook/
 ├── CLAUDE.md
 ├── docs/     # blueprint dan dokumen perencanaan
 │             # docs/pedoman-commit-lapaq.md: pedoman commit yang diusulkan untuk tim Lapaq
+│             # docs/daftar-tugas.md: daftar tugas per fase
 ├── audit/    # hasil audit (mis. github-pr-audit.md)
 └── app/      # aplikasi Next.js (Fase 1 sedang dibangun)
 ```
