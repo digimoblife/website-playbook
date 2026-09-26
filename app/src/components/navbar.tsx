@@ -14,7 +14,7 @@ export function Navbar({
 }) {
   return (
     <>
-      {/* .navbar punya tinggi tetap (--navbar-height), jadi pita pratinjau HARUS di luar
+      {/* .navbar punya tinggi tetap (--navbar-height) di layar lebar, jadi pita pratinjau HARUS di luar
           <header> ini sebagai baris kedua, bukan di dalamnya — kalau tidak, keduanya akan
           saling menimpa karena header dipaksa muat dalam satu tinggi baris navbar saja. */}
       <header className="navbar">
