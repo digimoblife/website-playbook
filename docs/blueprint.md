@@ -52,6 +52,7 @@ Semua keputusan di bawah sudah dikonfirmasi dan menjadi acuan, kecuali model AI 
 | Akses marketing internal | Login dengan akun, sama seperti partner |
 | Target waktu pemahaman | 10 menit untuk memahami satu fitur baru dari halamannya |
 | Anggaran bulanan | Sekitar $20 per bulan untuk VPS dan pemakaian Gemini |
+| Halaman Pengaturan (fase 2) | Satu instalasi untuk satu produk. Admin mengatur URL repo GitHub, token GitHub, nama produk, dan URL toko demo dari dashboard. Token disimpan terenkripsi dengan kunci di `.env.local` dan tidak pernah ditampilkan kembali. Produk lain memakai instalasi terpisah (database, domain, dan layanan sendiri) dari kode yang sama |
 
 ## Pengguna dan kebutuhan
 

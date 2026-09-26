@@ -67,6 +67,16 @@ Otomasi baru dimulai setelah kurasi manual Fase 1 terbukti nyaman. Tambah entri 
 - [x] Pedoman commit untuk tim Lapaq (`docs/pedoman-commit-lapaq.md`); tim sudah setuju
 - [ ] Pastikan tim Lapaq sudah memakai format commit dan PR untuk fitur
 
+### Halaman Pengaturan (keputusan 26 September 2026)
+- [ ] Menu Pengaturan di dashboard (hanya Admin), setiap perubahan tercatat di riwayat tanpa nilai rahasia
+- [ ] URL repo GitHub (`https://github.com/pemilik/repo` atau `pemilik/repo`), divalidasi formatnya
+- [ ] Token GitHub diisi dari Pengaturan: disimpan terenkripsi dengan kunci `SETTINGS_ENCRYPTION_KEY` di `.env.local`, hanya bisa diganti atau dihapus, tidak pernah ditampilkan kembali (cukup empat karakter terakhir)
+- [ ] Tombol "Uji koneksi" untuk memastikan token bisa membaca repo (hanya baca)
+- [ ] Nama produk yang bisa diedit, menggantikan tulisan "Lapaq" di navbar, sidebar, login, dan judul halaman
+- [ ] URL toko demo dipindah dari `.env.local` ke Pengaturan
+- [ ] Catat repo asal di setiap data tarikan GitHub, supaya entri lama tidak tercampur bila repo diganti
+- [ ] Nama cookie sesi tidak lagi memakai "lapaq_", dan panduan memasang lebih dari satu instalasi di satu VPS
+
 ### Penarikan dari GitHub
 - [~] Tarik PR dari GitHub secara manual (percobaan Langkah 4-experimental, halaman "Tarik dari GitHub")
 - [ ] Penerima webhook untuk merge PR dan push ke main, dengan verifikasi tanda tangan
