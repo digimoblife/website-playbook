@@ -10,7 +10,7 @@ Lapaq Playbook adalah website panduan produk yang membuat tim marketing internal
 
 Sumber acuan: `docs/blueprint.md`. Jika berbeda dengan dokumen Blueprint asli di Claude Docs, dokumen asli yang berlaku.
 
-Fase 1 sedang berjalan: Langkah 3d (FAQ dan tombol toko demo).
+Fase 1 sedang berjalan: Langkah 5 selesai (panduan skenario, gambar promosi, jadwal publish, Baru minggu ini, tampilan ponsel). Sisa Fase 1: deployment ke VPS (Langkah 4) dan uji penutupan. Daftar lengkap: `docs/daftar-tugas.md`.
 
 ## Keputusan kunci (dari blueprint)
 
@@ -62,7 +62,7 @@ lapaq-playbook/
 
 ## Tugas pertama: audit repositori GitHub Lapaq (selesai)
 
-Selesai; hasilnya di `audit/github-pr-audit.md`. Tugas berikutnya menunggu rencana fase 1 dari Product Manager. Tetap jangan menulis kode aplikasi sebelum diminta.
+Selesai; hasilnya di `audit/github-pr-audit.md`. Kode aplikasi Fase 1 sedang dibangun di `app/` sesuai langkah yang diminta Product Manager (lihat aturan kerja nomor 6).
 
 Repositori: `bajaklautmalaka/lapaq` (GitHub)
 Path lokal: `~/projects/lapaq` (hasil `gh repo clone`, di luar folder ini). Hanya baca dari clone itu; jangan commit atau push.

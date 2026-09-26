@@ -15,7 +15,7 @@ Satu aplikasi Next.js (di folder [`app/`](app/)), terpisah dari Lapaq tapi memak
 - **Dashboard admin** — area login tempat Product Manager mengurasi perubahan yang ditarik dari GitHub, mengatur status dan audiens, lalu mempublikasikan.
 - **Website frontend** — halaman yang dibaca tim marketing dan partner JV.
 
-Perubahan pada produk Lapaq ditarik dari repositori GitH-nya (`bajaklautmalaka/lapaq`, hanya dibaca), dikurasi manual oleh Admin, lalu disajikan ke pembaca. Draf AI (opsional) membantu menulis penjelasan awal, tapi keputusan status, audiens, dan publish selalu di tangan Admin.
+Perubahan pada produk Lapaq ditarik dari repositori GitHub-nya (`bajaklautmalaka/lapaq`, hanya dibaca), dikurasi manual oleh Admin, lalu disajikan ke pembaca. Draf AI (opsional) membantu menulis penjelasan awal, tapi keputusan status, audiens, dan publish selalu di tangan Admin.
 
 ## Status
 

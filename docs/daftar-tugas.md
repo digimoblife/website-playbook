@@ -1,6 +1,6 @@
 # Daftar Tugas Lapaq Playbook
 
-Per 26 September 2026. Disusun dari `docs/blueprint.md` (bagian Tahapan pembangunan, Spesifikasi, dan Risiko) dan dicocokkan dengan kode di `app/`. Tanda [x] berarti sudah ada di aplikasi dan teruji; [~] berarti ada sebagian atau masih percobaan; [ ] berarti belum ada.
+Per 26 September 2026, diperbarui setelah Langkah 5. Disusun dari `docs/blueprint.md` (bagian Tahapan pembangunan, Spesifikasi, dan Risiko) dan dicocokkan dengan kode di `app/`. Tanda [x] berarti sudah ada di aplikasi dan teruji; [~] berarti ada sebagian atau masih percobaan; [ ] berarti belum ada.
 
 ## Fase 1 — Kurasi manual (sedang berjalan)
 
@@ -24,27 +24,28 @@ Per 26 September 2026. Disusun dari `docs/blueprint.md` (bagian Tahapan pembangu
 - [x] Riwayat perubahan (siapa, apa, kapan)
 - [x] Halaman Pengguna
 - [x] Peta fitur awal (52 entri Internal dari audit)
-- [ ] Jadwal publish (publish otomatis pada waktu yang ditentukan Admin)
-- [ ] Jenis media "gambar promosi" di editor, terpisah dari screenshot
+- [x] Jadwal publish, dengan pemeriksaan ulang aturan publish saat waktunya tiba (Langkah 5c)
+- [x] Jenis media "gambar promosi" di editor, terpisah dari screenshot
 
 ### Website pembaca
 - [x] Beranda dengan tiga tombol tujuan
-- [~] Kartu "Baru minggu ini": sekarang berisi 3 entri terbaru, bukan yang terbit minggu ini
+- [x] Kartu "Baru minggu ini" berisi entri yang terbit dalam 7 hari terakhir (Langkah 5d)
 - [x] Apa yang baru
 - [x] Katalog fitur dengan filter tag kebutuhan
 - [x] Halaman fitur sesuai template: ringkasan, untuk siapa, masalah, langkah, janji, teks promosi, FAQ, dan tanggal diperbarui
 - [x] Bagian "Jangan dijanjikan" tidak pernah sampai ke Partner
 - [x] Tombol "Coba di toko demo"
 - [x] Umpan balik "Apakah halaman ini membantu?"
-- [ ] Gambar promosi yang bisa diunduh di halaman fitur
-- [ ] **Panduan skenario** (mis. "Menunjukkan Lapaq ke calon pelanggan dalam 10 menit"): tabel, editor admin, dan halaman pembaca
-- [ ] Cek tampilan di ponsel untuk semua halaman pembaca
+- [x] Gambar promosi yang bisa diunduh di halaman fitur (Langkah 5b)
+- [x] **Panduan skenario**: tabel, editor admin, dan halaman pembaca (Langkah 5a)
+- [x] Cek tampilan di ponsel (375 px) untuk semua halaman pembaca dan dashboard; navbar kini terlipat di ponsel (Langkah 5e)
 
 ### Deployment ke VPS (Langkah 4)
 - [ ] Siapkan VPS, reverse proxy (Nginx atau Caddy), dan HTTPS
 - [ ] Setel `client_max_body_size 12m` agar unggah gambar tidak gagal
 - [ ] Uji cookie `Secure` dan `X-Forwarded-For` dari alamat HTTPS sungguhan
 - [ ] Jalankan aplikasi sebagai layanan (mis. systemd atau pm2) dengan `db:migrate` sebelum `start`
+- [ ] Pasang cron `npm run jadwal:jalankan` setiap 5 menit (opsional, agar jadwal publish tepat menit)
 - [ ] Cadangan rutin `data/playbook.db` dan `data/media/` bersama-sama
 - [ ] Pastikan biaya bulanan tetap sekitar $20 (VPS dan Gemini)
 
@@ -52,8 +53,8 @@ Per 26 September 2026. Disusun dari `docs/blueprint.md` (bagian Tahapan pembangu
 - [ ] PM membuat dan menerbitkan satu fitur dari nol di server produksi
 - [ ] Ukur angka dasar: berapa lama marketing memahami satu fitur tanpa Playbook
 - [ ] Uji dengan satu anggota marketing: memahami fitur dari halamannya dalam 10 menit tanpa bertanya ke developer
-- [ ] Perbarui `CLAUDE.md` dan `app/README.md` yang masih menulis Langkah 3d dan "belum ada AI"
-- [ ] Perbaiki salah ketik "GitH-nya" di `README.md`
+- [x] Perbarui `CLAUDE.md` dan `app/README.md` yang masih menulis Langkah 3d dan "belum ada AI"
+- [x] Perbaiki salah ketik "GitH-nya" di `README.md`
 
 ## Fase 2 — Otomasi
 
