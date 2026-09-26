@@ -64,6 +64,8 @@ export type EditableEntry = EntryInput & {
   id: number;
   isPublished: boolean;
   publishedAt: Date | null;
+  /** Jadwal publish yang sedang berlaku (lib/schedule.ts), atau null. */
+  scheduledPublishAt: Date | null;
   archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -244,6 +246,7 @@ export function loadEditable(db: DbLike, id: number): EditableEntry | null {
     images,
     isPublished: row.isPublished,
     publishedAt: row.publishedAt,
+    scheduledPublishAt: row.scheduledPublishAt,
     archivedAt: row.archivedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -540,8 +543,9 @@ export function publishEntry(id: number, actorId: number, db: AppDb = getDb()): 
     if (blocker) return fail(blocker);
 
     const now = new Date();
+    // Publish manual menggantikan jadwal yang mungkin masih berlaku.
     tx.update(entries)
-      .set({ isPublished: true, publishedAt: now, updatedAt: now })
+      .set({ isPublished: true, publishedAt: now, scheduledPublishAt: null, scheduledBy: null, updatedAt: now })
       .where(eq(entries.id, id))
       .run();
     logHistory(
@@ -586,8 +590,9 @@ export function archiveEntry(id: number, actorId: number, db: AppDb = getDb()): 
     if (current.archivedAt) return fail("Entri ini sudah diarsipkan.");
     const now = new Date();
     // Satu UPDATE: terarsip dan tidak terbit berubah bersamaan (pemicu database menjaganya).
+    // Jadwal publish ikut dibatalkan: entri terarsip tidak boleh terbit.
     tx.update(entries)
-      .set({ archivedAt: now, isPublished: false, updatedAt: now })
+      .set({ archivedAt: now, isPublished: false, scheduledPublishAt: null, scheduledBy: null, updatedAt: now })
       .where(eq(entries.id, id))
       .run();
     logHistory(
@@ -596,7 +601,9 @@ export function archiveEntry(id: number, actorId: number, db: AppDb = getDb()): 
       actorId,
       current.isPublished
         ? "Diarsipkan (sebelumnya terbit; otomatis ditarik dari pembaca)"
-        : "Diarsipkan",
+        : current.scheduledPublishAt
+          ? "Diarsipkan (jadwal publish ikut dibatalkan)"
+          : "Diarsipkan",
       now,
     );
     return {
@@ -710,6 +717,7 @@ export function listEntriesAdmin(
 
 export type InboxRow = AdminListRow & {
   stepCount: number;
+  scheduledPublishAt: Date | null;
   /** Apakah entri ini akan terlihat pembaca bila diterbitkan (status dan audiens bukan Internal). */
   willBeVisible: boolean;
   /** Bagian yang masih kurang; hanya berarti bila willBeVisible. */
@@ -730,6 +738,7 @@ export function listInbox(db: AppDb = getDb()): InboxRow[] {
       summary: entries.summary,
       canPromise: entries.canPromise,
       cannotPromise: entries.cannotPromise,
+      scheduledPublishAt: entries.scheduledPublishAt,
       stepCount: sql<number>`(select count(*) from ${entrySteps} where ${entrySteps.entryId} = ${entries.id})`,
     })
     .from(entries)

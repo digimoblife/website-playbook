@@ -7,6 +7,7 @@ import { entries, media } from "@/db/schema";
 import { archiveEntry, createEntry, publishEntry, saveEntry } from "@/lib/admin-entries";
 import { createSession } from "@/lib/auth";
 import { archiveGuide, createGuide, publishGuide, saveGuide } from "@/lib/guides";
+import { scheduleEntryPublish } from "@/lib/schedule";
 import { insertUserRow, makeTestDb, makeWorld, snapshot, validGuideInput, validInput } from "./helpers";
 
 const state = vi.hoisted(() => ({ token: undefined as string | undefined, db: undefined as unknown }));
@@ -29,6 +30,8 @@ import {
   restoreEntryAction,
   saveEntryAction,
   unpublishEntryAction,
+  scheduleEntryAction,
+  cancelScheduleAction,
 } from "@/app/admin/entri/actions";
 import {
   createUserAction,
@@ -75,6 +78,7 @@ let w: ReturnType<typeof makeWorld> & {
   guideDraft: number;
   guidePublished: number;
   guideArchived: number;
+  scheduled: number;
 };
 
 beforeEach(() => {
@@ -109,6 +113,9 @@ beforeEach(() => {
   publishGuide(guidePublished, base.admin.id, db);
   const guideArchived = makeGuide("Panduan Arsip", "panduan-arsip");
   archiveGuide(guideArchived, base.admin.id, db);
+  const scheduled = make("Terjadwal", "terjadwal");
+  const sched = scheduleEntryPublish(scheduled, new Date(Date.now() + 3600_000).toISOString(), base.admin.id, db);
+  if (!sched.ok) throw new Error(sched.error);
   const inactive = insertUserRow(db, { email: "admin-mati@uji.lokal", role: "admin", active: false });
   w = {
     ...base,
@@ -120,6 +127,7 @@ beforeEach(() => {
     guideDraft,
     guidePublished,
     guideArchived,
+    scheduled,
   };
 });
 
@@ -150,6 +158,12 @@ const cases = (): Case[] => [
   { name: "unpublishEntryAction", call: () => unpublishEntryAction(undefined, fd({ id: w.published })), admin: okValue },
   { name: "archiveEntryAction", call: () => archiveEntryAction(undefined, fd({ id: w.draft })), admin: okValue },
   { name: "restoreEntryAction", call: () => restoreEntryAction(undefined, fd({ id: w.archived })), admin: okValue },
+  {
+    name: "scheduleEntryAction",
+    call: () => scheduleEntryAction(w.draft, new Date(Date.now() + 2 * 3600_000).toISOString()),
+    admin: okValue,
+  },
+  { name: "cancelScheduleAction", call: () => cancelScheduleAction(undefined, fd({ id: w.scheduled })), admin: okValue },
   {
     name: "createGuideAction",
     call: () => createGuideAction(undefined, fd({ title: "Panduan Dari Aksi" })),

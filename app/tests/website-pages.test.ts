@@ -476,3 +476,19 @@ describe("Halaman fitur: gambar promosi di 'Materi siap pakai'", () => {
     expect(html).not.toContain("Cara kerja");
   });
 });
+
+describe("Jadwal publish dijalankan saat pembaca membuka halaman", () => {
+  it("entri yang jadwalnya sudah lewat langsung tampil di Apa yang baru", async () => {
+    const created = createEntry({ title: "Fitur Terjadwal", actorId: adminId }, db);
+    if (!created.ok) throw new Error();
+    saveEntry(created.id, validInput({ title: "Fitur Terjadwal", slug: "fitur-terjadwal" }), adminId, db);
+    // Jadwal yang sudah lewat, dipasang langsung ke database (scheduleEntryPublish menolak waktu lampau).
+    db.update(entries)
+      .set({ scheduledPublishAt: new Date(Date.now() - 60_000), scheduledBy: adminId })
+      .where(eq(entries.id, created.id))
+      .run();
+    state.user = partner;
+    const html = renderToStaticMarkup(await ApaYangBaruPage());
+    expect(html).toContain("Fitur Terjadwal");
+  });
+});

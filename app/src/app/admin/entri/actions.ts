@@ -14,6 +14,7 @@ import {
 } from "@/lib/admin-entries";
 import { requireAdmin } from "@/lib/dal";
 import { deleteImage } from "@/lib/media";
+import { cancelEntrySchedule, scheduleEntryPublish } from "@/lib/schedule";
 
 // Setiap action di sini memanggil requireAdmin() PERTAMA, sebelum membaca input apa pun.
 // Pengguna selain Admin dialihkan dan tidak ada yang berubah di database.
@@ -111,4 +112,21 @@ export async function deleteMediaAction(
   if (!result.ok) return { ok: false, error: result.error };
   revalidateEntries();
   return { ok: true, message: "Gambar dihapus." };
+}
+
+/** `at` adalah waktu jadwal dalam format ISO (dikonversi dari zona waktu perangkat Admin di editor). */
+export async function scheduleEntryAction(id: number, at: unknown): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  if (!Number.isInteger(id) || id < 1) return { ok: false, error: "Entri tidak valid." };
+  const result = scheduleEntryPublish(id, at, admin.id);
+  if (!result.ok) return { ok: false, error: result.error };
+  revalidateEntries();
+  return { ok: true, message: result.message, entry: result.entry };
+}
+
+export async function cancelScheduleAction(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  return lifecycle(formData, (id, actorId) => cancelEntrySchedule(id, actorId));
 }

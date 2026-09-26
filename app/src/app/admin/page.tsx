@@ -4,6 +4,7 @@ import { ActionForm } from "@/components/action-form";
 import { StatusBadge } from "@/components/status-badge";
 import { listInbox } from "@/lib/admin-entries";
 import { requireAdmin } from "@/lib/dal";
+import { runDueSchedules } from "@/lib/schedule";
 import { STATUSES } from "@/lib/domain";
 import { formatDateTime } from "@/lib/format";
 import { AUDIENCE_LABEL, KIND_LABEL, NATURE_LABEL, ROLE_LABEL } from "@/lib/labels";
@@ -19,6 +20,7 @@ const STATUS_MEANING = {
 
 export default async function InboxPage() {
   const user = await requireAdmin();
+  runDueSchedules();
   const rows = listInbox();
 
   return (
@@ -59,6 +61,11 @@ export default async function InboxPage() {
                   <span className="muted">Audiens: {AUDIENCE_LABEL[row.audience]}</span>
                   <span className="muted">Diperbarui {formatDateTime(row.updatedAt)}</span>
                 </div>
+                {row.scheduledPublishAt && (
+                  <p className="note">
+                    <strong>Terjadwal terbit {formatDateTime(row.scheduledPublishAt)} WIB.</strong>
+                  </p>
+                )}
                 {row.isPublished ? (
                   <p className="note">
                     Sudah terbit, tetapi belum terlihat oleh pembaca karena status atau audiens masih Internal.

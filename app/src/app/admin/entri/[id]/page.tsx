@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getEditableEntry, listEntryHistory } from "@/lib/admin-entries";
 import { requireAdmin } from "@/lib/dal";
+import { runDueSchedules } from "@/lib/schedule";
 import { formatDateTime } from "@/lib/format";
 import { EntryEditor } from "./entry-editor";
 
@@ -10,6 +11,7 @@ export const metadata: Metadata = { title: "Editor entri" };
 
 export default async function EditorEntriPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
+  runDueSchedules();
   const { id } = await params;
   if (!/^[1-9][0-9]{0,9}$/.test(id)) notFound();
   const entry = getEditableEntry(Number(id));
