@@ -111,6 +111,25 @@ describe("GET /media/[id]: akses per peran (tabel tetap)", () => {
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG);
   });
 
+  it("?unduh=1 meminta browser menyimpan berkas dengan nama aman; tanpa itu tetap inline", async () => {
+    state.token = world.tokens.partner;
+    const inline = await get(image.open);
+    expect(inline.headers.get("content-disposition")).toBe("inline");
+    const res = await GET(new Request(`http://localhost/media/${image.open}?unduh=1`), {
+      params: Promise.resolve({ id: String(image.open) }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-disposition")).toBe(`attachment; filename="lapaq-gambar-${image.open}.png"`);
+  });
+
+  it("?unduh=1 tidak melonggarkan akses: gambar yang tak boleh dilihat tetap 404", async () => {
+    state.token = world.tokens.partner;
+    const res = await GET(new Request(`http://localhost/media/${image.mkt}?unduh=1`), {
+      params: Promise.resolve({ id: String(image.mkt) }),
+    });
+    expect(res.status).toBe(404);
+  });
+
   it("GIF disajikan sebagai image/gif", async () => {
     const created = createEntry({ title: "Punya GIF", actorId: world.admin.id }, db);
     if (!created.ok) throw new Error();

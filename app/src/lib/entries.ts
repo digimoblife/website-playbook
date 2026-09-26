@@ -110,8 +110,10 @@ export type EntryFaqForReader = { question: string; answer: string };
 export type EntryDetailForReader = EntryForReader & {
   /** Langkah "Cara pakai", terurut posisi. */
   steps: EntryStepForReader[];
-  /** Gambar entri yang tidak ditautkan ke langkah mana pun (galeri di atas). */
+  /** Gambar entri yang tidak ditautkan ke langkah mana pun dan bukan gambar promosi (galeri "Cara kerja"). */
   images: GalleryImageForReader[];
+  /** Gambar promosi yang bisa diunduh di "Materi siap pakai" (tidak ikut galeri). */
+  promoImages: GalleryImageForReader[];
   /** Pertanyaan yang sering diajukan, terurut posisi. Tidak dibatasi peran (beda dari Jangan dijanjikan). */
   faqs: EntryFaqForReader[];
 };
@@ -144,7 +146,7 @@ export function getEntryDetailBySlugFor(
   const linkedMediaIds = steps
     .map((s) => s.mediaId)
     .filter((id): id is number => id !== null);
-  const images = db
+  const unlinked = db
     .select({ id: media.id, kind: media.kind })
     .from(media)
     .where(
@@ -162,7 +164,10 @@ export function getEntryDetailBySlugFor(
     .orderBy(asc(entryFaqs.position))
     .all();
 
-  return { ...entry, steps, images, faqs };
+  const images = unlinked.filter((image) => image.kind !== "promo");
+  const promoImages = unlinked.filter((image) => image.kind === "promo");
+
+  return { ...entry, steps, images, promoImages, faqs };
 }
 
 /**

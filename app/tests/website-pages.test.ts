@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { AppDb } from "@/db/client";
-import { entries } from "@/db/schema";
+import { entries, media } from "@/db/schema";
 import { createEntry, publishEntry, saveEntry } from "@/lib/admin-entries";
 import type { SessionUser } from "@/lib/auth";
 import { createGuide, publishGuide, saveGuide } from "@/lib/guides";
@@ -457,5 +457,22 @@ describe("Panduan skenario: tautan fitur tidak membocorkan entri yang tak terlih
     state.user = partner;
     await expect(renderGuide("panduan-marketing")).rejects.toSatisfy(isNotFoundDigest);
     expect(renderToStaticMarkup(await PanduanPage())).not.toContain("Panduan Internal Marketing");
+  });
+});
+
+describe("Halaman fitur: gambar promosi di 'Materi siap pakai'", () => {
+  it("gambar promosi punya tombol unduh dan tidak ikut galeri 'Cara kerja'", async () => {
+    const row = db.select({ id: entries.id }).from(entries).where(eq(entries.slug, slug)).get()!;
+    const promo = db
+      .insert(media)
+      .values({ entryId: row.id, kind: "promo", source: "manual", filePath: "0123456789abcdef0123456789abcdef.png" })
+      .returning()
+      .get();
+    state.user = partner;
+    const html = await renderEntri();
+    expect(html).toContain("Materi siap pakai");
+    expect(html).toContain(`href="/media/${promo.id}?unduh=1"`);
+    expect(html).toContain("Unduh gambar promosi 1");
+    expect(html).not.toContain("Cara kerja");
   });
 });
