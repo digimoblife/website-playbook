@@ -6,14 +6,17 @@ import { requireUser } from "@/lib/dal";
 import { ROLE_LABEL } from "@/lib/labels";
 import { getWebsiteViewer } from "@/lib/preview";
 
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
 export default async function BerandaPage() {
   const user = await requireUser();
   const viewer = await getWebsiteViewer(user);
   const visible = listEntriesFor(viewer);
+  // "Baru minggu ini" = terbit dalam 7 hari terakhir, terbaru di atas.
+  const weekAgo = Date.now() - WEEK_MS;
   const newest = visible
-    .filter((entry) => entry.publishedAt)
-    .sort((a, b) => b.publishedAt!.getTime() - a.publishedAt!.getTime())
-    .slice(0, 3);
+    .filter((entry) => entry.publishedAt && entry.publishedAt.getTime() >= weekAgo)
+    .sort((a, b) => b.publishedAt!.getTime() - a.publishedAt!.getTime());
 
   return (
     <div className="stack">
@@ -54,7 +57,10 @@ export default async function BerandaPage() {
       <section aria-labelledby="baru-minggu-ini">
         <h2 id="baru-minggu-ini">Baru minggu ini</h2>
         {newest.length === 0 ? (
-          <p className="muted">Belum ada yang dipublikasikan untuk Anda.</p>
+          <p className="muted">
+            Belum ada fitur baru dalam 7 hari terakhir. Lihat semua perubahan di{" "}
+            <Link href="/baru">Apa yang baru</Link>.
+          </p>
         ) : (
           <ul className="entry-list">
             {newest.map((entry) => (

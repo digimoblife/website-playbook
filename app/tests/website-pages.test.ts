@@ -492,3 +492,29 @@ describe("Jadwal publish dijalankan saat pembaca membuka halaman", () => {
     expect(html).toContain("Fitur Terjadwal");
   });
 });
+
+describe("Beranda: 'Baru minggu ini' hanya berisi yang terbit dalam 7 hari terakhir", () => {
+  it("entri lama tidak tampil di kartu, entri baru tampil", async () => {
+    const old = createEntry({ title: "Fitur Lama Sekali", actorId: adminId }, db);
+    if (!old.ok) throw new Error();
+    saveEntry(old.id, validInput({ title: "Fitur Lama Sekali", slug: "fitur-lama-sekali" }), adminId, db);
+    publishEntry(old.id, adminId, db);
+    db.update(entries)
+      .set({ publishedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) })
+      .where(eq(entries.id, old.id))
+      .run();
+
+    state.user = partner;
+    const html = renderToStaticMarkup(await BerandaPage());
+    expect(html).not.toContain("Fitur Lama Sekali");
+    expect(html).toContain("Fitur Uji"); // terbit di beforeEach, jadi masih minggu ini
+  });
+
+  it("tidak ada yang baru: tampil pesan dengan tautan ke Apa yang baru", async () => {
+    db.update(entries).set({ publishedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) }).run();
+    state.user = partner;
+    const html = renderToStaticMarkup(await BerandaPage());
+    expect(html).toContain("Belum ada fitur baru dalam 7 hari terakhir");
+    expect(html).toContain('href="/baru"');
+  });
+});
