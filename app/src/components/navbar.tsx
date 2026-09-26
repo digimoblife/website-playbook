@@ -29,6 +29,9 @@ export function Navbar({
             <Link href="/katalog" className="nav-link">
               Katalog
             </Link>
+            <Link href="/panduan" className="nav-link">
+              Panduan
+            </Link>
             {user.role === "admin" && (
               <Link href="/admin" className="nav-link">
                 Dashboard admin

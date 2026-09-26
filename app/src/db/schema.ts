@@ -105,6 +105,11 @@ export const entries = sqliteTable(
       .notNull()
       .default(false),
     publishedAt: integer("published_at", { mode: "timestamp_ms" }),
+    // Jadwal publish yang dipasang Admin (Langkah 5). Kosong berarti tidak terjadwal. Saat waktunya
+    // tiba, lib/schedule.ts memeriksa ulang aturan publish lalu menerbitkannya atas nama
+    // scheduled_by; bila aturan tidak lagi terpenuhi, jadwal dibatalkan dan dicatat di riwayat.
+    scheduledPublishAt: integer("scheduled_publish_at", { mode: "timestamp_ms" }),
+    scheduledBy: integer("scheduled_by").references(() => users.id),
     // Entri tidak pernah dihapus, hanya diarsipkan. Entri terarsip selalu is_published = false
     // (dijaga oleh pemicu database di migrasi 0002 dan oleh lib/admin-entries.ts).
     archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
@@ -234,4 +239,73 @@ export const githubImports = sqliteTable(
       .references(() => users.id),
   },
   (t) => [index("github_imports_pr_number_idx").on(t.prNumber)],
+);
+
+// Panduan skenario (Langkah 5), mis. "Menunjukkan Lapaq ke calon pelanggan dalam 10 menit".
+// Aturan terlihatnya SAMA dengan entri (status, audiens, terbit, arsip) dan diputuskan oleh
+// lib/access.ts; panduan tidak punya "Jangan dijanjikan", jadi tidak ada kolom yang disembunyikan.
+export const guides = sqliteTable(
+  "guides",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    slug: text("slug").notNull().unique(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull().default(""),
+    // Kapan panduan ini dipakai dan apa yang perlu disiapkan.
+    intro: text("intro").notNull().default(""),
+    // Default aman: panduan baru selalu Internal, beraudiens Internal, belum terbit.
+    status: text("status", { enum: STATUSES }).notNull().default("internal"),
+    audience: text("audience", { enum: AUDIENCES })
+      .notNull()
+      .default("internal"),
+    isPublished: integer("is_published", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    publishedAt: integer("published_at", { mode: "timestamp_ms" }),
+    // Panduan terarsip selalu is_published = false (dijaga pemicu database di migrasi 0006).
+    archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+  },
+  (t) => [
+    check("guides_status_check", oneOf(t.status, STATUSES)),
+    check("guides_audience_check", oneOf(t.audience, AUDIENCES)),
+    index("guides_visibility_idx").on(t.isPublished, t.status, t.audience),
+  ],
+);
+
+export const guideSteps = sqliteTable(
+  "guide_steps",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    guideId: integer("guide_id")
+      .notNull()
+      .references(() => guides.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    text: text("text").notNull(),
+    // Halaman fitur yang dirujuk langkah ini (opsional). Tautan hanya ditampilkan ke pembaca
+    // yang boleh melihat entri itu (lib/guides.ts); bila entrinya dihapus, tautan menjadi kosong.
+    entryId: integer("entry_id").references(() => entries.id, { onDelete: "set null" }),
+  },
+  (t) => [unique("guide_steps_guide_position_unq").on(t.guideId, t.position)],
+);
+
+export const guideHistory = sqliteTable(
+  "guide_history",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    guideId: integer("guide_id")
+      .notNull()
+      .references(() => guides.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    at: integer("at", { mode: "timestamp_ms" }).notNull().default(nowMs),
+    summary: text("summary").notNull(),
+  },
+  (t) => [index("guide_history_guide_id_idx").on(t.guideId)],
 );

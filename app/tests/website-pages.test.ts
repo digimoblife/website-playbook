@@ -8,7 +8,8 @@ import type { AppDb } from "@/db/client";
 import { entries } from "@/db/schema";
 import { createEntry, publishEntry, saveEntry } from "@/lib/admin-entries";
 import type { SessionUser } from "@/lib/auth";
-import { insertUserRow, makeTestDb, validInput } from "./helpers";
+import { createGuide, publishGuide, saveGuide } from "@/lib/guides";
+import { insertUserRow, makeTestDb, validGuideInput, validInput } from "./helpers";
 
 const state = vi.hoisted(() => ({
   user: undefined as SessionUser | undefined,
@@ -46,6 +47,8 @@ import EntriPage from "@/app/(situs)/entri/[slug]/page";
 import BerandaPage from "@/app/(situs)/page";
 import ApaYangBaruPage from "@/app/(situs)/baru/page";
 import KatalogPage from "@/app/(situs)/katalog/page";
+import PanduanPage from "@/app/(situs)/panduan/page";
+import PanduanDetailPage from "@/app/(situs)/panduan/[slug]/page";
 
 function sessionUser(over: Partial<SessionUser>): SessionUser {
   return {
@@ -378,5 +381,81 @@ describe("Halaman fitur: tombol 'Coba di toko demo'", () => {
     expect(html).toContain('href="https://demo.lapaq.id/toko"');
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noopener noreferrer"');
+  });
+});
+
+describe("Panduan skenario: tautan fitur tidak membocorkan entri yang tak terlihat", () => {
+  beforeEach(() => {
+    const hidden = createEntry({ title: "Fitur Rahasia Marketing", actorId: adminId }, db);
+    if (!hidden.ok) throw new Error();
+    saveEntry(
+      hidden.id,
+      validInput({ title: "Fitur Rahasia Marketing", slug: "fitur-rahasia-marketing", status: "beta", audience: "marketing" }),
+      adminId,
+      db,
+    );
+    publishEntry(hidden.id, adminId, db);
+    const visible = db.select({ id: entries.id }).from(entries).where(eq(entries.slug, slug)).get()!;
+
+    const guide = createGuide({ title: "Demo Sepuluh Menit", actorId: adminId }, db);
+    if (!guide.ok) throw new Error(guide.error);
+    const saved = saveGuide(
+      guide.id,
+      validGuideInput({
+        title: "Demo Sepuluh Menit",
+        slug: "demo-sepuluh-menit",
+        steps: [
+          { text: "Tunjukkan fitur umum", entryId: visible.id },
+          { text: "Tunjukkan fitur khusus", entryId: hidden.id },
+        ],
+      }),
+      adminId,
+      db,
+    );
+    if (!saved.ok) throw new Error(saved.error);
+    const pub = publishGuide(guide.id, adminId, db);
+    if (!pub.ok) throw new Error(pub.error);
+  });
+
+  const renderGuide = async (guideSlug = "demo-sepuluh-menit") =>
+    renderToStaticMarkup(await PanduanDetailPage({ params: Promise.resolve({ slug: guideSlug }) }));
+
+  it("Partner sungguhan: teks semua langkah tampil, tapi tautan dan judul fitur khusus Marketing tidak", async () => {
+    state.user = partner;
+    const html = await renderGuide();
+    expect(html).toContain("Tunjukkan fitur umum");
+    expect(html).toContain("Tunjukkan fitur khusus");
+    expect(html).toContain(`href="/entri/${slug}"`);
+    expect(html).not.toContain("Fitur Rahasia Marketing");
+    expect(html).not.toContain("fitur-rahasia-marketing");
+  });
+
+  it("Marketing sungguhan dan Admin berpratinjau Marketing: kedua tautan tampil", async () => {
+    for (const [user, preview] of [
+      [marketing, undefined],
+      [admin, "marketing"],
+    ] as const) {
+      state.user = user;
+      state.previewCookie = preview;
+      const html = await renderGuide();
+      expect(html).toContain('href="/entri/fitur-rahasia-marketing"');
+    }
+  });
+
+  it("daftar panduan tampil untuk Partner; panduan yang tak ada -> notFound()", async () => {
+    state.user = partner;
+    const list = renderToStaticMarkup(await PanduanPage());
+    expect(list).toContain("Demo Sepuluh Menit");
+    await expect(renderGuide("tidak-ada")).rejects.toSatisfy(isNotFoundDigest);
+  });
+
+  it("panduan khusus Marketing -> notFound() untuk Partner dan tidak ada di daftarnya", async () => {
+    const guide = createGuide({ title: "Panduan Internal Marketing", actorId: adminId }, db);
+    if (!guide.ok) throw new Error();
+    saveGuide(guide.id, validGuideInput({ title: "Panduan Internal Marketing", slug: "panduan-marketing", audience: "marketing" }), adminId, db);
+    publishGuide(guide.id, adminId, db);
+    state.user = partner;
+    await expect(renderGuide("panduan-marketing")).rejects.toSatisfy(isNotFoundDigest);
+    expect(renderToStaticMarkup(await PanduanPage())).not.toContain("Panduan Internal Marketing");
   });
 });

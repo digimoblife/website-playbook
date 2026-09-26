@@ -2,9 +2,21 @@ import { fileURLToPath } from "node:url";
 import type { Logger } from "drizzle-orm/logger";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { createDb, type AppDb } from "@/db/client";
-import { entries, entryFaqs, entryHistory, entrySteps, media, sessions, users } from "@/db/schema";
+import {
+  entries,
+  entryFaqs,
+  entryHistory,
+  entrySteps,
+  guideHistory,
+  guides,
+  guideSteps,
+  media,
+  sessions,
+  users,
+} from "@/db/schema";
 import { createSession } from "@/lib/auth";
 import type { EntryInput } from "@/lib/admin-entries";
+import type { GuideInput } from "@/lib/guide-rules";
 import type { Audience, Role, Status } from "@/lib/domain";
 
 const MIGRATIONS = fileURLToPath(new URL("../drizzle", import.meta.url));
@@ -105,6 +117,9 @@ export function snapshot(db: AppDb): string {
     media: db.select().from(media).orderBy(media.id).all(),
     history: db.select().from(entryHistory).orderBy(entryHistory.id).all(),
     sessions: db.select().from(sessions).orderBy(sessions.id).all(),
+    guides: db.select().from(guides).orderBy(guides.id).all(),
+    guideSteps: db.select().from(guideSteps).orderBy(guideSteps.id).all(),
+    guideHistory: db.select().from(guideHistory).orderBy(guideHistory.id).all(),
   });
 }
 
@@ -151,4 +166,20 @@ export function fakeWebp(size = 64): Uint8Array {
   const bytes = new Uint8Array(size);
   bytes.set([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]);
   return bytes;
+}
+
+// ---------- Tambahan Langkah 5 ----------
+
+/** Masukan panduan yang valid dan memenuhi syarat publish (terlihat oleh Marketing dan Partner). */
+export function validGuideInput(over: Partial<GuideInput> = {}): GuideInput {
+  return {
+    title: "Panduan Uji",
+    slug: "panduan-uji",
+    summary: "Ringkasan panduan uji.",
+    intro: "Dipakai saat uji.",
+    status: "siap",
+    audience: "partner",
+    steps: [{ text: "Buka toko demo", entryId: null }],
+    ...over,
+  };
 }

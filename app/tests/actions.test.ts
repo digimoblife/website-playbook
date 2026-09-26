@@ -6,7 +6,8 @@ import type { AppDb } from "@/db/client";
 import { entries, media } from "@/db/schema";
 import { archiveEntry, createEntry, publishEntry, saveEntry } from "@/lib/admin-entries";
 import { createSession } from "@/lib/auth";
-import { insertUserRow, makeTestDb, makeWorld, snapshot, validInput } from "./helpers";
+import { archiveGuide, createGuide, publishGuide, saveGuide } from "@/lib/guides";
+import { insertUserRow, makeTestDb, makeWorld, snapshot, validGuideInput, validInput } from "./helpers";
 
 const state = vi.hoisted(() => ({ token: undefined as string | undefined, db: undefined as unknown }));
 vi.mock("@/lib/session", () => ({
@@ -35,6 +36,14 @@ import {
   setActiveAction,
   updateUserAction,
 } from "@/app/admin/pengguna/actions";
+import {
+  archiveGuideAction,
+  createGuideAction,
+  publishGuideAction,
+  restoreGuideAction,
+  saveGuideAction,
+  unpublishGuideAction,
+} from "@/app/admin/panduan/actions";
 
 type Outcome = { redirect: string } | { value: unknown };
 
@@ -63,6 +72,9 @@ let w: ReturnType<typeof makeWorld> & {
   archived: number;
   mediaId: number;
   inactiveAdminToken: string;
+  guideDraft: number;
+  guidePublished: number;
+  guideArchived: number;
 };
 
 beforeEach(() => {
@@ -86,6 +98,17 @@ beforeEach(() => {
     .values({ entryId: draft, kind: "screenshot", source: "manual", filePath: "0123456789abcdef0123456789abcdef.png" })
     .returning()
     .get();
+  const makeGuide = (title: string, slug: string) => {
+    const r = createGuide({ title, actorId: base.admin.id }, db);
+    if (!r.ok) throw new Error(r.error);
+    saveGuide(r.id, validGuideInput({ title, slug }), base.admin.id, db);
+    return r.id;
+  };
+  const guideDraft = makeGuide("Panduan Draf", "panduan-draf");
+  const guidePublished = makeGuide("Panduan Terbit", "panduan-terbit");
+  publishGuide(guidePublished, base.admin.id, db);
+  const guideArchived = makeGuide("Panduan Arsip", "panduan-arsip");
+  archiveGuide(guideArchived, base.admin.id, db);
   const inactive = insertUserRow(db, { email: "admin-mati@uji.lokal", role: "admin", active: false });
   w = {
     ...base,
@@ -94,6 +117,9 @@ beforeEach(() => {
     archived,
     mediaId: m.id,
     inactiveAdminToken: createSession(inactive.id, db).token,
+    guideDraft,
+    guidePublished,
+    guideArchived,
   };
 });
 
@@ -124,6 +150,20 @@ const cases = (): Case[] => [
   { name: "unpublishEntryAction", call: () => unpublishEntryAction(undefined, fd({ id: w.published })), admin: okValue },
   { name: "archiveEntryAction", call: () => archiveEntryAction(undefined, fd({ id: w.draft })), admin: okValue },
   { name: "restoreEntryAction", call: () => restoreEntryAction(undefined, fd({ id: w.archived })), admin: okValue },
+  {
+    name: "createGuideAction",
+    call: () => createGuideAction(undefined, fd({ title: "Panduan Dari Aksi" })),
+    admin: (o) => expect((o as { redirect: string }).redirect).toMatch(/^\/admin\/panduan\/\d+$/),
+  },
+  {
+    name: "saveGuideAction",
+    call: () => saveGuideAction(w.guideDraft, validGuideInput({ title: "Panduan Diubah", slug: "panduan-diubah" })),
+    admin: okValue,
+  },
+  { name: "publishGuideAction", call: () => publishGuideAction(undefined, fd({ id: w.guideDraft })), admin: okValue },
+  { name: "unpublishGuideAction", call: () => unpublishGuideAction(undefined, fd({ id: w.guidePublished })), admin: okValue },
+  { name: "archiveGuideAction", call: () => archiveGuideAction(undefined, fd({ id: w.guideDraft })), admin: okValue },
+  { name: "restoreGuideAction", call: () => restoreGuideAction(undefined, fd({ id: w.guideArchived })), admin: okValue },
   { name: "deleteMediaAction", call: () => deleteMediaAction(undefined, fd({ id: w.mediaId })), admin: okValue },
   { name: "resetPasswordAction", call: () => resetPasswordAction(undefined, fd({ id: w.marketing.id })), admin: okValue },
   {

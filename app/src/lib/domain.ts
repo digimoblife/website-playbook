@@ -57,4 +57,5 @@ export const LIMITS = {
   faqs: 10,
   faqQuestion: 200,
   faqAnswer: 500,
+  guideSteps: 15,
 } as const;

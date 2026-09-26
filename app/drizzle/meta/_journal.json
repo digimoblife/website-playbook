@@ -43,6 +43,13 @@
       "when": 1790168822770,
       "tag": "0005_langkah4exp_github_imports",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790434214851,
+      "tag": "0006_langkah5_panduan_jadwal",
+      "breakpoints": true
     }
   ]
 }
