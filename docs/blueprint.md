@@ -289,7 +289,7 @@ Audit hanya-baca terhadap repositori bajaklautmalaka/lapaq (21 September 2026) m
 
 ## Pertanyaan terbuka
 
-Semua pertanyaan sudah terjawab.
+Dua belas pertanyaan sudah terjawab, dan satu masih terbuka.
 
 - [x] Apakah tim developer Lapaq memakai label PR atau feature flag, dan seberapa rapi penamaan PR-nya? Tidak ada label maupun sistem feature flag, dan penamaan campur (audit 21 September 2026)
 - [x] Apakah delapan rekomendasi pada bagian Keputusan disetujui? Ya, dengan penyesuaian: peran Editor tidak dibuat
@@ -303,3 +303,4 @@ Semua pertanyaan sudah terjawab.
 - [x] Berapa perkiraan biaya bulanan untuk hosting, database, dan pemakaian AI? Sekitar $20 per bulan untuk VPS dan Gemini (26 September 2026)
 - [x] Apakah tim marketing internal juga masuk lewat akun, atau cukup dengan cara lain? Ya, lewat akun (26 September 2026)
 - [x] Apakah tim developer Lapaq bersedia memakai format commit yang diusulkan dan mewajibkan PR untuk fitur? Ya, dengan syarat fitur tambah entri manual tetap dipertahankan (26 September 2026)
+- [ ] Apakah tebakan Jenis (fitur inti atau add-on) dari jalur file akurat? Perlu divalidasi di repositori sebelum fase 2

@@ -36,7 +36,7 @@ Fase 1 sedang berjalan: Langkah 3d (FAQ dan tombol toko demo).
 - **Di luar cakupan**: platform mirip GitBook, bahasa selain Indonesia, publikasi tanpa persetujuan admin, dan perubahan apa pun pada kode atau infrastruktur Lapaq.
 
 ### Pertanyaan yang masih terbuka
-Tidak ada. Semua sudah dijawab Product Manager pada 26 September 2026 (lihat blueprint).
+Validasi tebakan Jenis dari jalur file sebelum fase 2. Pertanyaan lain sudah dijawab Product Manager pada 26 September 2026 (lihat blueprint).
 
 ## Aturan kerja
 
