@@ -1,6 +1,6 @@
 # Lapaq Playbook — Blueprint
 
-Per 21 September 2026, diperbarui setelah audit repositori. Salinan dari dokumen Blueprint di Claude Docs; jika ada perbedaan, dokumen asli menjadi acuan.
+Per 21 September 2026, diperbarui setelah audit repositori dan keputusan 26 September 2026. Salinan dari dokumen Blueprint di Claude Docs; jika ada perbedaan, dokumen asli menjadi acuan.
 
 ## Ringkasan dan tujuan
 
@@ -47,7 +47,11 @@ Semua keputusan di bawah sudah dikonfirmasi dan menjadi acuan, kecuali model AI 
 | Pengelompokan perubahan | Saring otomatis yang jelas bukan fitur, cocokkan ke peta fitur, dan kelompokkan lewat kunci "Fitur:" pada commit; Admin yang memutuskan |
 | Penanda entri | Jenis (Fitur inti atau Add-on) dan Sifat (Baru atau Pembaruan) |
 | Changelog dan roadmap Lapaq | Playbook berdiri sendiri; tidak menautkan atau mengimpornya |
-| Format commit | Conventional Commits dengan trailer "Fitur:"; diberikan Product Manager kepada tim developer Lapaq |
+| Format commit | Conventional Commits dengan trailer "Fitur:"; tim developer Lapaq bersedia memakainya dan mewajibkan PR untuk fitur |
+| Tambah entri manual | Admin tetap bisa membuat entri secara manual dari dashboard ("Buat entri"); fitur ini tidak boleh dihapus atau digantikan oleh otomasi GitHub di fase mana pun |
+| Akses marketing internal | Login dengan akun, sama seperti partner |
+| Target waktu pemahaman | 10 menit untuk memahami satu fitur baru dari halamannya |
+| Anggaran bulanan | Sekitar $20 per bulan untuk VPS dan pemakaian Gemini |
 
 ## Pengguna dan kebutuhan
 
@@ -56,7 +60,7 @@ Ada dua kelompok pembaca dan satu pengelola, dan para pembaca tidak memerlukan p
 | Peran | Siapa | Kebutuhan utama |
 | --- | --- | --- |
 | Admin | Product Manager | Melihat perubahan baru dari GitHub, memutuskan status dan audiens, menyunting draf, lalu publish dengan usaha sekecil mungkin |
-| Tim marketing internal | Pembaca | Memahami Lapaq dan fitur baru dengan cepat, tahu apa yang boleh dan tidak boleh dijanjikan, dan punya materi siap pakai |
+| Tim marketing internal | Pembaca | Masuk dengan akun; memahami Lapaq dan fitur baru dengan cepat, tahu apa yang boleh dan tidak boleh dijanjikan, dan punya materi siap pakai |
 | Partner JV | Pembaca eksternal | Memahami Lapaq, fitur yang tersedia, dan cara pakainya; masuk dengan akun dan hanya melihat konten yang ditandai untuk mereka, tanpa bagian "Jangan dijanjikan" |
 
 Semua pembaca perlu bahasa sehari-hari, tampilan yang nyaman di ponsel, dan halaman yang singkat dengan satu topik per halaman.
@@ -248,11 +252,11 @@ Ukuran utamanya adalah waktu yang dibutuhkan tim marketing untuk memahami Lapaq 
 
 | Ukuran | Peran | Cara memantau |
 | --- | --- | --- |
-| Waktu marketing memahami Lapaq dan fitur baru | Utama | Mencatat waktu onboarding anggota marketing baru, serta waktu memahami fitur baru, sebelum dan sesudah hub dipakai (manual) |
+| Waktu marketing memahami Lapaq dan fitur baru (target 10 menit per fitur) | Utama | Mencatat waktu onboarding anggota marketing baru, serta waktu memahami fitur baru, sebelum dan sesudah hub dipakai (manual) |
 | Halaman dinilai membantu | Pendukung | Tombol "Apakah halaman ini membantu?" di setiap halaman fitur (otomatis) |
 | Pertanyaan marketing ke developer per bulan | Pendukung | Dicatat manual |
 
-Angka dasar sebelum hub dipakai dan target angkanya belum ditetapkan; keduanya tercatat di pertanyaan terbuka.
+Targetnya 10 menit untuk memahami satu fitur baru dari halamannya (ditetapkan Product Manager, 26 September 2026).
 
 ## Risiko dan mitigasinya
 
@@ -263,7 +267,8 @@ Risiko terbesar bukan pada teknologi, melainkan pada kurasi: kalau PM menjadi sa
 | Kurasi tertunda dan hub menjadi basi | Triase AI, ringkasan mingguan, persetujuan satu klik, pengingat untuk draf yang menunggu lebih dari seminggu |
 | Inbox menumpuk | Bug kecil dan refactor otomatis masuk arsip |
 | Fitur setengah jadi terbaca seperti fitur siap | Semua draf berstatus Internal secara default; hanya Admin yang mengubah status |
-| Satu commit tidak sama dengan satu fitur | Kunci "Fitur:" pada commit, pencocokan ke peta fitur, saring otomatis, dan koreksi rutin oleh Admin; tim Lapaq diminta memakai format commit yang disepakati |
+| Satu commit tidak sama dengan satu fitur | Kunci "Fitur:" pada commit, pencocokan ke peta fitur, saring otomatis, dan koreksi rutin oleh Admin; tim Lapaq sudah setuju memakai format commit dan mewajibkan PR untuk fitur |
+| Perubahan tidak tertangkap otomasi (commit tanpa format, fitur tanpa PR) | Admin tetap bisa menambah entri secara manual dari dashboard |
 | Detail internal atau rahasia terbawa ke AI atau ke partner | Token GitHub hanya-baca; AI hanya menerima judul dan deskripsi PR, pesan commit, dan ringkasan perubahan (bukan seluruh kode); kontrol audiens; review sebelum publish |
 | Screenshot rusak saat tampilan Lapaq berubah | Penanda "gagal diperbarui" dan cadangan unggah manual |
 | Toko demo berubah atau tidak stabil | Isi toko demo dijaga stabil karena skenario screenshot bergantung padanya |
@@ -284,7 +289,7 @@ Audit hanya-baca terhadap repositori bajaklautmalaka/lapaq (21 September 2026) m
 
 ## Pertanyaan terbuka
 
-Delapan pertanyaan sudah terjawab, dan lima masih terbuka.
+Semua pertanyaan sudah terjawab.
 
 - [x] Apakah tim developer Lapaq memakai label PR atau feature flag, dan seberapa rapi penamaan PR-nya? Tidak ada label maupun sistem feature flag, dan penamaan campur (audit 21 September 2026)
 - [x] Apakah delapan rekomendasi pada bagian Keputusan disetujui? Ya, dengan penyesuaian: peran Editor tidak dibuat
@@ -294,8 +299,7 @@ Delapan pertanyaan sudah terjawab, dan lima masih terbuka.
 - [x] Apa sumber perubahan setelah audit? PR sebagai sumber utama, commit langsung ke main masuk daftar perlu ditinjau
 - [x] Apakah changelog dan roadmap Lapaq ditautkan? Tidak, Playbook berdiri sendiri
 - [x] Kapan mockup dibuat? Prototipe klik sudah dibuat dan disetujui
-- [ ] Berapa angka dasar waktu marketing memahami fitur sebelum hub, dan berapa targetnya? Belum diketahui
-- [ ] Berapa perkiraan biaya bulanan untuk hosting, database, dan pemakaian AI? Model yang dipertimbangkan: Gemini 3.5 Flash Lite; biaya belum dihitung
-- [ ] Apakah tim marketing internal juga masuk lewat akun, atau cukup dengan cara lain?
-- [ ] Apakah tim developer Lapaq bersedia memakai format commit yang diusulkan dan mewajibkan PR untuk fitur? Format akan diberikan Product Manager kepada tim developer
-- [ ] Apakah tebakan Jenis (fitur inti atau add-on) dari jalur file akurat? Perlu divalidasi di repositori sebelum fase 2
+- [x] Berapa angka dasar waktu marketing memahami fitur sebelum hub, dan berapa targetnya? Target 10 menit (26 September 2026)
+- [x] Berapa perkiraan biaya bulanan untuk hosting, database, dan pemakaian AI? Sekitar $20 per bulan untuk VPS dan Gemini (26 September 2026)
+- [x] Apakah tim marketing internal juga masuk lewat akun, atau cukup dengan cara lain? Ya, lewat akun (26 September 2026)
+- [x] Apakah tim developer Lapaq bersedia memakai format commit yang diusulkan dan mewajibkan PR untuk fitur? Ya, dengan syarat fitur tambah entri manual tetap dipertahankan (26 September 2026)

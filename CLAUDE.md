@@ -26,14 +26,17 @@ Fase 1 sedang berjalan: Langkah 3d (FAQ dan tombol toko demo).
 - **"Jangan dijanjikan"**: hanya tampil ke marketing internal, tidak ke partner.
 - **Ditunda ke fase 3**: chatbot Tanya Lapaq.
 - **Fase**: (1) kurasi manual, (2) otomasi, (3) kenyamanan. Otomasi baru ditambahkan setelah kurasi manual terbukti nyaman. Mockup beranda dan halaman fitur sudah dibuat sebagai prototipe klik dan disetujui Product Manager pada 21 September 2026.
-- **Sumber perubahan**: PR; commit langsung ke main masuk daftar "perlu ditinjau" di inbox.
+- **Sumber perubahan**: PR; commit langsung ke main masuk daftar "perlu ditinjau" di inbox. Tim Lapaq setuju memakai format commit dan mewajibkan PR untuk fitur.
+- **Tambah entri manual** ("Buat entri" di dashboard) wajib dipertahankan; otomasi GitHub tidak boleh menggantikan atau menghapusnya.
+- **Akses pembaca**: marketing internal dan partner sama-sama masuk dengan akun.
+- **Target**: marketing memahami satu fitur baru dalam 10 menit. Anggaran sekitar $20 per bulan (VPS dan Gemini).
 - **Penanda entri**: Jenis (Fitur inti atau Add-on) dan Sifat (Baru atau Pembaruan).
 - **Pengelompokan**: kunci "Fitur:" pada commit dan pencocokan ke peta fitur; Admin yang memutuskan.
 - **Changelog dan roadmap Lapaq**: Playbook berdiri sendiri dan tidak menautkan atau mengimpornya.
 - **Di luar cakupan**: platform mirip GitBook, bahasa selain Indonesia, publikasi tanpa persetujuan admin, dan perubahan apa pun pada kode atau infrastruktur Lapaq.
 
 ### Pertanyaan yang masih terbuka
-Angka dasar dan target waktu pemahaman marketing, estimasi biaya bulanan, apakah marketing internal masuk lewat akun, kesediaan tim Lapaq memakai format commit dan mewajibkan PR untuk fitur, dan validasi tebakan Jenis dari jalur file sebelum fase 2.
+Tidak ada. Semua sudah dijawab Product Manager pada 26 September 2026 (lihat blueprint).
 
 ## Aturan kerja
 
