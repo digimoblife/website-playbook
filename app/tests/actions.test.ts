@@ -54,6 +54,8 @@ import {
   testGithubConnectionAction,
 } from "@/app/admin/pengaturan/actions";
 import { setGithubToken } from "@/lib/settings";
+import { createEntryFromCommitAction, markChangeReviewedAction } from "@/app/admin/github/actions";
+import { githubChanges } from "@/db/schema";
 
 type Outcome = { redirect: string } | { value: unknown };
 
@@ -86,6 +88,8 @@ let w: ReturnType<typeof makeWorld> & {
   guidePublished: number;
   guideArchived: number;
   scheduled: number;
+  changePr: number;
+  changeCommit: number;
 };
 
 beforeEach(() => {
@@ -126,6 +130,21 @@ beforeEach(() => {
   process.env.SETTINGS_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
   const tokenSaved = setGithubToken("ghp_" + "t".repeat(36), base.admin.id, db);
   if (!tokenSaved.ok) throw new Error(tokenSaved.error);
+  const change = (kind: "pr" | "commit", n: number) =>
+    db
+      .insert(githubChanges)
+      .values({
+        repo: "a/b",
+        kind,
+        prNumber: kind === "pr" ? n : null,
+        commitSha: kind === "commit" ? String(n).repeat(40).slice(0, 40) : null,
+        title: `Perubahan ${n}`,
+        url: "https://github.com/a/b",
+      })
+      .returning()
+      .get().id;
+  const changePr = change("pr", 5);
+  const changeCommit = change("commit", 7);
   const inactive = insertUserRow(db, { email: "admin-mati@uji.lokal", role: "admin", active: false });
   w = {
     ...base,
@@ -138,6 +157,8 @@ beforeEach(() => {
     guidePublished,
     guideArchived,
     scheduled,
+    changePr,
+    changeCommit,
   };
 });
 
@@ -174,6 +195,12 @@ const cases = (): Case[] => [
     admin: okValue,
   },
   { name: "cancelScheduleAction", call: () => cancelScheduleAction(undefined, fd({ id: w.scheduled })), admin: okValue },
+  { name: "markChangeReviewedAction", call: () => markChangeReviewedAction(undefined, fd({ id: w.changePr })), admin: okValue },
+  {
+    name: "createEntryFromCommitAction",
+    call: () => createEntryFromCommitAction(undefined, fd({ id: w.changeCommit })),
+    admin: (o) => expect((o as { redirect: string }).redirect).toMatch(/^\/admin\/entri\/\d+$/),
+  },
   {
     name: "saveSettingsAction",
     call: () => saveSettingsAction(undefined, fd({ productName: "Produk Baru", githubRepo: "a/b", demoStoreUrl: "" })),

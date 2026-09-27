@@ -23,6 +23,12 @@ export type MediaKind = (typeof MEDIA_KINDS)[number];
 export const MEDIA_SOURCES = ["auto", "manual"] as const;
 export type MediaSource = (typeof MEDIA_SOURCES)[number];
 
+// Perubahan yang masuk lewat webhook GitHub (Langkah 6c).
+export const GITHUB_CHANGE_KINDS = ["pr", "commit"] as const;
+export type GithubChangeKind = (typeof GITHUB_CHANGE_KINDS)[number];
+export const GITHUB_CHANGE_STATES = ["baru", "ditinjau"] as const;
+export type GithubChangeState = (typeof GITHUB_CHANGE_STATES)[number];
+
 // Tag kebutuhan pelanggan: pilihan tetap. Yang disimpan di database adalah `key`.
 export const NEEDS_TAGS = [
   { key: "menarik-pembeli", label: "Menarik pembeli" },

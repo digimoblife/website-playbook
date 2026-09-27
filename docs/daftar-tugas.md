@@ -79,8 +79,8 @@ Otomasi baru dimulai setelah kurasi manual Fase 1 terbukti nyaman. Tambah entri 
 
 ### Penarikan dari GitHub
 - [~] Tarik PR dari GitHub secara manual (percobaan Langkah 4-experimental, halaman "Tarik dari GitHub")
-- [ ] Penerima webhook untuk merge PR dan push ke main, dengan verifikasi tanda tangan
-- [ ] Daftar commit langsung ke main yang "perlu ditinjau" di inbox
+- [x] Penerima webhook untuk merge PR dan push ke main, dengan verifikasi tanda tangan (Langkah 6c; tinggal dipasang di GitHub setelah VPS siap)
+- [x] Daftar commit langsung ke main yang "perlu ditinjau" di inbox (Langkah 6c)
 
 ### Triase dan draf AI
 - [~] Draf AI dari judul, deskripsi, dan nama file PR (percobaan, Gemini)

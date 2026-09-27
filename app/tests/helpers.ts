@@ -12,6 +12,7 @@ import {
   guideSteps,
   appSettings,
   settingsHistory,
+  githubChanges,
   media,
   sessions,
   users,
@@ -124,6 +125,7 @@ export function snapshot(db: AppDb): string {
     guideHistory: db.select().from(guideHistory).orderBy(guideHistory.id).all(),
     appSettings: db.select().from(appSettings).all(),
     settingsHistory: db.select().from(settingsHistory).orderBy(settingsHistory.id).all(),
+    githubChanges: db.select().from(githubChanges).orderBy(githubChanges.id).all(),
   });
 }
 

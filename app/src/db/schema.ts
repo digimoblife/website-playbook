@@ -11,6 +11,8 @@ import {
 } from "drizzle-orm/sqlite-core";
 import {
   AUDIENCES,
+  GITHUB_CHANGE_KINDS,
+  GITHUB_CHANGE_STATES,
   KINDS,
   MEDIA_KINDS,
   MEDIA_SOURCES,
@@ -341,4 +343,49 @@ export const settingsHistory = sqliteTable("settings_history", {
   at: integer("at", { mode: "timestamp_ms" }).notNull().default(nowMs),
   // Tidak pernah berisi nilai rahasia; untuk token hanya "diganti (akhiran abcd)" atau "dihapus".
   summary: text("summary").notNull(),
+});
+
+// Perubahan yang masuk lewat webhook GitHub (Langkah 6c): PR yang di-merge ke branch utama dan
+// commit langsung ke branch utama ("perlu ditinjau"). Hanya dilihat Admin. Tidak ada yang terbit
+// otomatis: Admin yang memutuskan membuat draf, membuat entri, atau menandainya sudah ditinjau.
+export const githubChanges = sqliteTable(
+  "github_changes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    repo: text("repo").notNull(),
+    kind: text("kind", { enum: GITHUB_CHANGE_KINDS }).notNull(),
+    prNumber: integer("pr_number"),
+    commitSha: text("commit_sha"),
+    title: text("title").notNull(),
+    body: text("body").notNull().default(""),
+    url: text("url").notNull(),
+    // Larik JSON nama file yang berubah (bukan isi). Untuk PR diisi saat draf dibuat (6d).
+    files: text("files").notNull().default("[]"),
+    happenedAt: integer("happened_at", { mode: "timestamp_ms" }),
+    receivedAt: integer("received_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+    state: text("state", { enum: GITHUB_CHANGE_STATES }).notNull().default("baru"),
+    reviewedAt: integer("reviewed_at", { mode: "timestamp_ms" }),
+    reviewedBy: integer("reviewed_by").references(() => users.id),
+    entryId: integer("entry_id").references(() => entries.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    check("github_changes_kind_check", oneOf(t.kind, GITHUB_CHANGE_KINDS)),
+    check("github_changes_state_check", oneOf(t.state, GITHUB_CHANGE_STATES)),
+    // Satu baris per PR dan per commit, walau webhook yang sama dikirim ulang.
+    uniqueIndex("github_changes_repo_pr_unq").on(t.repo, t.prNumber),
+    uniqueIndex("github_changes_repo_sha_unq").on(t.repo, t.commitSha),
+    index("github_changes_state_idx").on(t.state),
+  ],
+);
+
+// ID pengiriman webhook (header X-GitHub-Delivery) yang sudah diproses, supaya kiriman ulang
+// dari GitHub tidak diproses dua kali.
+export const webhookDeliveries = sqliteTable("webhook_deliveries", {
+  deliveryId: text("delivery_id").primaryKey(),
+  event: text("event").notNull(),
+  receivedAt: integer("received_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(nowMs),
 });

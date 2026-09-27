@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import type { AppDb } from "@/db/client";
-import { entries, githubImports } from "@/db/schema";
+import { entries, githubChanges, githubImports } from "@/db/schema";
 import { createSession } from "@/lib/auth";
 import { insertUserRow, makeTestDb, snapshot } from "./helpers";
 
@@ -28,7 +28,7 @@ vi.mock("@/lib/github-api", () => ({ getPullRequestDetail: githubMock.getPullReq
 const aiMock = vi.hoisted(() => ({ generateAiDraft: vi.fn() }));
 vi.mock("@/lib/ai-draft", () => ({ generateAiDraft: aiMock.generateAiDraft }));
 
-import { pullFromGithubAction } from "@/app/admin/github/actions";
+import { draftFromPullRequestAction, pullFromGithubAction } from "@/app/admin/github/actions";
 
 type Outcome = { redirect: string } | { value: unknown };
 async function run(fn: () => Promise<unknown>): Promise<Outcome> {
@@ -213,5 +213,56 @@ describe("pullFromGithubAction: repo dari Pengaturan (Langkah 6a)", () => {
     expect(res).toEqual({ ok: false, error: "Repo GitHub belum diatur. Isi dulu di menu Pengaturan." });
     expect(githubMock.getPullRequestDetail).not.toHaveBeenCalled();
     expect(snapshot(db)).toBe(before);
+  });
+});
+
+describe("draftFromPullRequestAction: PR dari webhook (Langkah 6c)", () => {
+  const fd = (id: number) => {
+    const form = new FormData();
+    form.set("id", String(id));
+    return form;
+  };
+  const insertChange = (repo = "bajaklautmalaka/lapaq") =>
+    db
+      .insert(githubChanges)
+      .values({ repo, kind: "pr", prNumber: 7, title: "Tambah kunci stok", url: "https://github.com/x/pulls/7" })
+      .returning()
+      .get().id;
+
+  it("Partner ditolak sebelum apa pun dipanggil", async () => {
+    const id = insertChange();
+    state.token = createSession(partnerId, db).token;
+    const before = snapshot(db);
+    expect(await run(() => draftFromPullRequestAction(undefined, fd(id)))).toEqual({ redirect: "/" });
+    expect(snapshot(db)).toBe(before);
+    expect(githubMock.getPullRequestDetail).not.toHaveBeenCalled();
+  });
+
+  it("Admin: draf Internal dibuat, perubahan ditandai ditinjau dan tertaut, lalu diarahkan ke editor", async () => {
+    const id = insertChange();
+    state.token = createSession(adminId, db).token;
+    const res = await run(() => draftFromPullRequestAction(undefined, fd(id)));
+    expect(res).toMatchObject({ redirect: expect.stringMatching(/^\/admin\/entri\/\d+$/) });
+    const entry = db.select().from(entries).get()!;
+    expect(entry).toMatchObject({ status: "internal", audience: "internal", isPublished: false, sourcePrNumber: 7 });
+    expect(db.select().from(githubChanges).get()).toMatchObject({ state: "ditinjau", entryId: entry.id });
+  });
+
+  it("PR dari repo lain dari yang dipakai sekarang: ditolak tanpa memanggil GitHub", async () => {
+    const id = insertChange("orang-lain/produk");
+    state.token = createSession(adminId, db).token;
+    const res = await run(() => draftFromPullRequestAction(undefined, fd(id)));
+    expect(res).toMatchObject({ value: { ok: false } });
+    expect(githubMock.getPullRequestDetail).not.toHaveBeenCalled();
+  });
+
+  it("AI belum aktif: tidak ada entri, perubahan tetap baru", async () => {
+    const id = insertChange();
+    aiMock.generateAiDraft.mockResolvedValue({ status: "unavailable", message: "Draf AI belum aktif" });
+    state.token = createSession(adminId, db).token;
+    const res = await run(() => draftFromPullRequestAction(undefined, fd(id)));
+    expect(res).toEqual({ value: { ok: false, error: "Draf AI belum aktif" } });
+    expect(db.select().from(entries).all()).toEqual([]);
+    expect(db.select().from(githubChanges).get()).toMatchObject({ state: "baru" });
   });
 });
