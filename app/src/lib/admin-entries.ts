@@ -321,7 +321,7 @@ export type GithubPullDraft = {
   nature: unknown;
 };
 
-export type GithubPullInfo = { number: number; title: string; url: string };
+export type GithubPullInfo = { number: number; title: string; url: string; /** "pemilik/repo" asal PR. */ repo?: string };
 
 /**
  * Membuat entri baru dari draf AI hasil penarikan PR GitHub, dalam SATU transaksi bersama baris
@@ -375,6 +375,7 @@ export function pullFromGithub(
         prNumber: pr.number,
         prTitle: pr.title,
         prUrl: pr.url,
+        repo: pr.repo ?? null,
         entryId: row.id,
         actorId,
         importedAt: now,

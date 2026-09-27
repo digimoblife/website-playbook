@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { isAiConfigured } from "@/lib/ai-draft";
 import { requireAdmin } from "@/lib/dal";
+import Link from "next/link";
 import { listPullRequestsWithStatus } from "@/lib/github-import-status";
+import { getGithubConfig } from "@/lib/settings";
 import { GithubPullTable } from "./github-pull-table";
 
 export const metadata: Metadata = { title: "Tarik dari GitHub" };
@@ -9,14 +11,15 @@ export const metadata: Metadata = { title: "Tarik dari GitHub" };
 export default async function GithubPullPage() {
   await requireAdmin();
   const aiReady = isAiConfigured();
-  const prs = await listPullRequestsWithStatus();
+  const config = getGithubConfig();
+  const prs = config ? await listPullRequestsWithStatus(config) : null;
 
   return (
     <>
       <div className="page-head">
         <h1>Tarik dari GitHub</h1>
         <p className="muted" style={{ margin: 0 }}>
-          Percobaan (Langkah 4-experimental): tarik manual PR dari bajaklautmalaka/lapaq dan buat
+          Percobaan (Langkah 4-experimental): tarik manual PR dari {config?.repo ?? "repo GitHub"} dan buat
           draf entri lewat AI. Bukan webhook, tidak ada jadwal otomatis — klik tombol untuk menarik.
         </p>
       </div>
@@ -30,8 +33,12 @@ export default async function GithubPullPage() {
       )}
 
       <section className="card" aria-labelledby="daftar-pr">
-        <h2 id="daftar-pr">Pull request di bajaklautmalaka/lapaq</h2>
-        {!prs.ok ? (
+        <h2 id="daftar-pr">Pull request di {config?.repo ?? "repo GitHub"}</h2>
+        {!prs ? (
+          <p className="muted">
+            Repo GitHub belum diatur. Isi dulu di <Link href="/admin/pengaturan">Pengaturan</Link>.
+          </p>
+        ) : !prs.ok ? (
           <p className="inline-error" role="alert">
             {prs.error}
           </p>

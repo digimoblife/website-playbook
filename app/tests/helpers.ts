@@ -10,6 +10,8 @@ import {
   guideHistory,
   guides,
   guideSteps,
+  appSettings,
+  settingsHistory,
   media,
   sessions,
   users,
@@ -120,6 +122,8 @@ export function snapshot(db: AppDb): string {
     guides: db.select().from(guides).orderBy(guides.id).all(),
     guideSteps: db.select().from(guideSteps).orderBy(guideSteps.id).all(),
     guideHistory: db.select().from(guideHistory).orderBy(guideHistory.id).all(),
+    appSettings: db.select().from(appSettings).all(),
+    settingsHistory: db.select().from(settingsHistory).orderBy(settingsHistory.id).all(),
   });
 }
 

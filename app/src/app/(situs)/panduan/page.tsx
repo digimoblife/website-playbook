@@ -17,7 +17,7 @@ export default async function PanduanPage() {
       <div className="page-head">
         <h1>Panduan skenario</h1>
         <p className="muted" style={{ margin: 0 }}>
-          Urutan langkah untuk situasi nyata, mis. saat menunjukkan Lapaq ke calon pelanggan.
+          Urutan langkah untuk situasi nyata, mis. saat menunjukkan produk ke calon pelanggan.
         </p>
       </div>
 

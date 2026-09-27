@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StatusBadge } from "@/components/status-badge";
 import { requireUser } from "@/lib/dal";
-import { getDemoStoreUrl } from "@/lib/demo-store";
+import { getDemoStoreUrl } from "@/lib/settings";
 import { formatDateTime } from "@/lib/format";
 import { getGuideDetailBySlugFor } from "@/lib/guides";
 import { getWebsiteViewer } from "@/lib/preview";

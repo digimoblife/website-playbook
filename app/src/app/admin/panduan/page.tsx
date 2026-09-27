@@ -18,7 +18,7 @@ export default async function PanduanAdminPage() {
         <div>
           <h1>Panduan skenario</h1>
           <p className="muted" style={{ margin: 0 }}>
-            Alur langkah demi langkah yang merangkai beberapa fitur, mis. &ldquo;Menunjukkan Lapaq ke calon
+            Alur langkah demi langkah yang merangkai beberapa fitur, mis. &ldquo;Menunjukkan produk ke calon
             pelanggan dalam 10 menit&rdquo;. Aturan status, audiens, dan publish sama seperti entri.
           </p>
         </div>

@@ -119,7 +119,7 @@ describe("GET /media/[id]: akses per peran (tabel tetap)", () => {
       params: Promise.resolve({ id: String(image.open) }),
     });
     expect(res.status).toBe(200);
-    expect(res.headers.get("content-disposition")).toBe(`attachment; filename="lapaq-gambar-${image.open}.png"`);
+    expect(res.headers.get("content-disposition")).toBe(`attachment; filename="gambar-${image.open}.png"`);
   });
 
   it("?unduh=1 tidak melonggarkan akses: gambar yang tak boleh dilihat tetap 404", async () => {

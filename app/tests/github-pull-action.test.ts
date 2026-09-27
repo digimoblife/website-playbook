@@ -73,6 +73,7 @@ let marketingId: number;
 let partnerId: number;
 
 beforeEach(() => {
+  process.env.GITHUB_REPO = "bajaklautmalaka/lapaq";
   db = makeTestDb();
   state.db = db;
   state.token = undefined;
@@ -187,5 +188,30 @@ describe("pullFromGithubAction: nomor PR tidak valid", () => {
       expect(res, String(bad)).toEqual({ ok: false, error: "Nomor PR tidak valid." });
     }
     expect(githubMock.getPullRequestDetail).not.toHaveBeenCalled();
+  });
+});
+
+describe("pullFromGithubAction: repo dari Pengaturan (Langkah 6a)", () => {
+  beforeEach(() => {
+    state.token = createSession(adminId, db).token;
+  });
+
+  it("memakai repo dari lingkungan bila Pengaturan kosong, dan mencatat repo asal di github_imports", async () => {
+    const res = await pullFromGithubAction(7);
+    expect(res).toMatchObject({ ok: true });
+    expect(githubMock.getPullRequestDetail).toHaveBeenCalledWith(
+      expect.objectContaining({ repo: "bajaklautmalaka/lapaq" }),
+      7,
+    );
+    expect(db.select().from(githubImports).all().map((r) => r.repo)).toEqual(["bajaklautmalaka/lapaq"]);
+  });
+
+  it("repo belum diatur sama sekali: ditolak dengan arahan ke Pengaturan, tanpa memanggil GitHub", async () => {
+    delete process.env.GITHUB_REPO;
+    const before = snapshot(db);
+    const res = await pullFromGithubAction(7);
+    expect(res).toEqual({ ok: false, error: "Repo GitHub belum diatur. Isi dulu di menu Pengaturan." });
+    expect(githubMock.getPullRequestDetail).not.toHaveBeenCalled();
+    expect(snapshot(db)).toBe(before);
   });
 });

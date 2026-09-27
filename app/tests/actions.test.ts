@@ -47,6 +47,13 @@ import {
   saveGuideAction,
   unpublishGuideAction,
 } from "@/app/admin/panduan/actions";
+import {
+  clearGithubTokenAction,
+  saveGithubTokenAction,
+  saveSettingsAction,
+  testGithubConnectionAction,
+} from "@/app/admin/pengaturan/actions";
+import { setGithubToken } from "@/lib/settings";
 
 type Outcome = { redirect: string } | { value: unknown };
 
@@ -116,6 +123,9 @@ beforeEach(() => {
   const scheduled = make("Terjadwal", "terjadwal");
   const sched = scheduleEntryPublish(scheduled, new Date(Date.now() + 3600_000).toISOString(), base.admin.id, db);
   if (!sched.ok) throw new Error(sched.error);
+  process.env.SETTINGS_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+  const tokenSaved = setGithubToken("ghp_" + "t".repeat(36), base.admin.id, db);
+  if (!tokenSaved.ok) throw new Error(tokenSaved.error);
   const inactive = insertUserRow(db, { email: "admin-mati@uji.lokal", role: "admin", active: false });
   w = {
     ...base,
@@ -164,6 +174,17 @@ const cases = (): Case[] => [
     admin: okValue,
   },
   { name: "cancelScheduleAction", call: () => cancelScheduleAction(undefined, fd({ id: w.scheduled })), admin: okValue },
+  {
+    name: "saveSettingsAction",
+    call: () => saveSettingsAction(undefined, fd({ productName: "Produk Baru", githubRepo: "a/b", demoStoreUrl: "" })),
+    admin: okValue,
+  },
+  {
+    name: "saveGithubTokenAction",
+    call: () => saveGithubTokenAction(undefined, fd({ token: "ghp_" + "n".repeat(36) })),
+    admin: okValue,
+  },
+  { name: "clearGithubTokenAction", call: () => clearGithubTokenAction(), admin: okValue },
   {
     name: "createGuideAction",
     call: () => createGuideAction(undefined, fd({ title: "Panduan Dari Aksi" })),
@@ -219,6 +240,17 @@ describe("Server Action: selain Admin ditolak dan database tidak berubah", () =>
       });
     });
   }
+
+  it("Uji koneksi GitHub: selain Admin dialihkan tanpa memanggil GitHub", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    for (const [, token, target] of CALLERS) {
+      state.token = token();
+      expect(await run(() => testGithubConnectionAction())).toEqual({ redirect: target });
+    }
+    expect(fetchSpy).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
 
   it("penolakan terjadi SEBELUM input dibaca: masukan rusak pun hanya menghasilkan pengalihan", async () => {
     state.token = w.tokens.partner;

@@ -5,7 +5,7 @@ import { CopyButton } from "@/components/copy-button";
 import { FeedbackWidget } from "@/components/feedback-widget";
 import { StatusBadge } from "@/components/status-badge";
 import { requireUser } from "@/lib/dal";
-import { getDemoStoreUrl } from "@/lib/demo-store";
+import { getDemoStoreUrl } from "@/lib/settings";
 import { getEntryDetailBySlugFor, type EntryDetailForReader } from "@/lib/entries";
 import { formatDateTime } from "@/lib/format";
 import { getWebsiteViewer } from "@/lib/preview";

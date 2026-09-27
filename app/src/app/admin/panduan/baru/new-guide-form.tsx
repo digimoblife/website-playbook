@@ -26,7 +26,7 @@ export function NewGuideForm() {
           maxLength={LIMITS.title}
           autoComplete="off"
           aria-describedby="title-hint"
-          placeholder="Menunjukkan Lapaq ke calon pelanggan dalam 10 menit"
+          placeholder="Menunjukkan produk ke calon pelanggan dalam 10 menit"
           required
         />
         <span id="title-hint" className="hint">

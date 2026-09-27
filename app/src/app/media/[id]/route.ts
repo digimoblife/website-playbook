@@ -39,7 +39,7 @@ export async function GET(
       "Content-Type": found.mime, // dari jenis yang sudah divalidasi saat unggah
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, no-cache",
-      "Content-Disposition": download ? `attachment; filename="lapaq-gambar-${id}.${ext}"` : "inline",
+      "Content-Disposition": download ? `attachment; filename="gambar-${id}.${ext}"` : "inline",
       "Content-Security-Policy": "default-src 'none'; sandbox",
     },
   });

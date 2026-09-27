@@ -228,6 +228,9 @@ export const githubImports = sqliteTable(
     prNumber: integer("pr_number").notNull(),
     prTitle: text("pr_title").notNull(),
     prUrl: text("pr_url").notNull(),
+    // Repo asal ("pemilik/repo", Langkah 6a). Status "sudah ditarik" dicocokkan per repo, jadi
+    // mengganti repo di Pengaturan tidak mencampur PR bernomor sama dari repo lain.
+    repo: text("repo"),
     entryId: integer("entry_id")
       .notNull()
       .references(() => entries.id, { onDelete: "cascade" }),
@@ -309,3 +312,33 @@ export const guideHistory = sqliteTable(
   },
   (t) => [index("guide_history_guide_id_idx").on(t.guideId)],
 );
+
+// Pengaturan instalasi (Langkah 6a). Selalu tepat SATU baris (id = 1). Kolom yang kosong berarti
+// "pakai nilai dari variabel lingkungan" supaya instalasi lama tetap berjalan (lib/settings.ts).
+export const appSettings = sqliteTable(
+  "app_settings",
+  {
+    id: integer("id").primaryKey(),
+    productName: text("product_name").notNull().default("Lapaq"),
+    githubRepo: text("github_repo"),
+    // Token GitHub TERENKRIPSI (AES-256-GCM, kunci SETTINGS_ENCRYPTION_KEY di lingkungan server).
+    // Nilai aslinya tidak pernah disimpan, dicatat, atau dikirim kembali ke browser.
+    githubTokenEncrypted: text("github_token_encrypted"),
+    githubTokenLast4: text("github_token_last4"),
+    demoStoreUrl: text("demo_store_url"),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+  },
+  (t) => [check("app_settings_single_row", sql`${t.id} = 1`)],
+);
+
+export const settingsHistory = sqliteTable("settings_history", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  at: integer("at", { mode: "timestamp_ms" }).notNull().default(nowMs),
+  // Tidak pernah berisi nilai rahasia; untuk token hanya "diganti (akhiran abcd)" atau "dihapus".
+  summary: text("summary").notNull(),
+});

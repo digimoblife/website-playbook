@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
+import { getProductName } from "@/lib/settings";
 import "./globals.css";
 
 const display = Bricolage_Grotesque({
@@ -16,12 +18,17 @@ const body = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: { default: "Lapaq Playbook", template: "%s · Lapaq Playbook" },
-  description: "Panduan produk Lapaq untuk tim marketing dan partner JV.",
-  // Situs ini tertutup (wajib login); jangan diindeks mesin pencari.
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  // Nama produk dibaca dari database saat permintaan masuk, bukan saat build.
+  await connection();
+  const name = `${getProductName()} Playbook`;
+  return {
+    title: { default: name, template: `%s · ${name}` },
+    description: `Panduan produk ${getProductName()} untuk tim marketing dan partner.`,
+    // Situs ini tertutup (wajib login); jangan diindeks mesin pencari.
+    robots: { index: false, follow: false },
+  };
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

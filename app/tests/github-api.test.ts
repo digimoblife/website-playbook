@@ -1,6 +1,8 @@
 // lib/github-api.ts: fetch GLOBAL dipalsukan sepenuhnya. Tidak ada panggilan jaringan sungguhan.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getPullRequestDetail, listPullRequests } from "@/lib/github-api";
+import { checkRepoAccess, getPullRequestDetail, listPullRequests } from "@/lib/github-api";
+
+const CONFIG = { repo: "bajaklautmalaka/lapaq", token: "token-uji" };
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -32,7 +34,7 @@ describe("listPullRequests", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await listPullRequests();
+    const res = await listPullRequests(CONFIG);
     expect(res).toEqual({
       ok: true,
       data: [
@@ -49,8 +51,8 @@ describe("listPullRequests", () => {
 
   it("401 -> pesan token tidak valid", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(401, {})));
-    const res = await listPullRequests();
-    expect(res).toEqual({ ok: false, error: expect.stringContaining("GITHUB_TOKEN") });
+    const res = await listPullRequests(CONFIG);
+    expect(res).toEqual({ ok: false, error: expect.stringContaining("Token GitHub tidak valid") });
   });
 
   it("403 dengan rate limit habis -> pesan jelas menyebut batas", async () => {
@@ -58,7 +60,7 @@ describe("listPullRequests", () => {
       "fetch",
       vi.fn().mockResolvedValue(jsonResponse(403, {}, { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "1893456000" })),
     );
-    const res = await listPullRequests();
+    const res = await listPullRequests(CONFIG);
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.error).toMatch(/[Bb]atas panggilan/);
   });
@@ -66,14 +68,14 @@ describe("listPullRequests", () => {
   it("403 tanpa indikasi rate limit -> pesan galat lain, bukan diam-diam retry", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(403, {}));
     vi.stubGlobal("fetch", fetchMock);
-    const res = await listPullRequests();
+    const res = await listPullRequests(CONFIG);
     expect(res.ok).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1); // tidak retry berulang
   });
 
   it("kegagalan jaringan -> pesan jelas, bukan melempar exception mentah", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
-    const res = await listPullRequests();
+    const res = await listPullRequests(CONFIG);
     expect(res).toEqual({ ok: false, error: expect.stringContaining("Tidak bisa terhubung") });
   });
 });
@@ -91,7 +93,7 @@ describe("getPullRequestDetail", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await getPullRequestDetail(7);
+    const res = await getPullRequestDetail(CONFIG, 7);
     expect(res).toEqual({
       ok: true,
       data: {
@@ -107,8 +109,35 @@ describe("getPullRequestDetail", () => {
   it("404 pada detail PR -> galat, tidak lanjut memanggil endpoint file", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(404, {}));
     vi.stubGlobal("fetch", fetchMock);
-    const res = await getPullRequestDetail(999);
+    const res = await getPullRequestDetail(CONFIG, 999);
     expect(res.ok).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("checkRepoAccess (Uji koneksi)", () => {
+  it("satu GET ke /repos/pemilik/repo; melaporkan akses tulis bila token punya izin push", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, { full_name: "bajaklautmalaka/lapaq", private: true, permissions: { pull: true, push: true, admin: false } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await checkRepoAccess(CONFIG);
+    expect(res).toEqual({ ok: true, data: { fullName: "bajaklautmalaka/lapaq", isPrivate: true, canWrite: true, hasToken: true } });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.github.com/repos/bajaklautmalaka/lapaq");
+    expect(init.method ?? "GET").toBe("GET");
+  });
+
+  it("token hanya-baca: canWrite false", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, { full_name: "a/b", private: false, permissions: { pull: true } })));
+    const res = await checkRepoAccess({ repo: "a/b" });
+    expect(res).toEqual({ ok: true, data: { fullName: "a/b", isPrivate: false, canWrite: false, hasToken: false } });
+  });
+
+  it("404 -> pesan repo tidak ditemukan atau token tanpa akses", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(404, {})));
+    const res = await checkRepoAccess(CONFIG);
+    expect(res).toEqual({ ok: false, error: "Repo tidak ditemukan, atau token tidak punya akses baca ke repo ini." });
   });
 });

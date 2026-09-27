@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/dal";
 import { homePathFor } from "@/lib/labels";
+import { getProductName } from "@/lib/settings";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Masuk" };
@@ -14,7 +15,7 @@ export default async function MasukPage() {
   return (
     <>
       <Link href="/masuk" className="brand">
-        Lapaq Playbook
+        {getProductName()} Playbook
       </Link>
       <div className="card">
         <h1>Masuk</h1>

@@ -2,7 +2,7 @@
 
 Website panduan produk Lapaq untuk tim marketing internal dan partner JV, dengan dashboard admin untuk Product Manager. Rancangan lengkap ada di `../docs/blueprint.md`.
 
-**Status: Fase 1, Langkah 5 selesai.** Sudah ada: database, login dan peran, aturan akses konten, dashboard admin lengkap (termasuk jadwal publish), website untuk pembaca (Beranda dengan "Baru minggu ini", Apa yang baru, Katalog dengan filter tag, halaman fitur dengan FAQ, gambar promosi yang bisa diunduh, dan tombol "Coba di toko demo", Panduan skenario, umpan balik "Apakah halaman ini membantu?", pratinjau "Lihat sebagai" untuk Admin), serta percobaan "Tarik dari GitHub" dengan draf AI (Langkah 4-experimental, penarikan manual per PR). Belum ada: deployment (Langkah 4), webhook GitHub, triase otomatis, dan screenshot otomatis (Fase 2).
+**Status: Fase 1, Langkah 5 selesai; Fase 2, Langkah 6a (Pengaturan) selesai.** Sudah ada: database, login dan peran, aturan akses konten, dashboard admin lengkap (termasuk jadwal publish), website untuk pembaca (Beranda dengan "Baru minggu ini", Apa yang baru, Katalog dengan filter tag, halaman fitur dengan FAQ, gambar promosi yang bisa diunduh, dan tombol "Coba di toko demo", Panduan skenario, umpan balik "Apakah halaman ini membantu?", pratinjau "Lihat sebagai" untuk Admin), serta percobaan "Tarik dari GitHub" dengan draf AI (Langkah 4-experimental, penarikan manual per PR). Menu **Pengaturan** mengatur nama produk, repo GitHub, token GitHub, dan toko demo. Belum ada: deployment (Langkah 4), webhook GitHub, triase otomatis, dan screenshot otomatis (Fase 2).
 
 Teknologi: Next.js 16 (App Router, TypeScript), SQLite lewat Drizzle ORM, argon2id untuk kata sandi, Vitest untuk tes.
 
@@ -32,7 +32,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-Sudah punya database dari langkah sebelumnya? Cukup jalankan `npm run db:migrate`. Setiap migrasi (Langkah 2: dua kolom dan dua pemicu; Langkah 3: indeks unik pada umpan balik halaman; Langkah 3d: tabel `entry_faqs`; Langkah 4-experimental: tabel `github_imports`; Langkah 5: tabel `guides`, `guide_steps`, `guide_history` dan kolom jadwal publish pada `entries`) bersifat aditif dan tidak menghapus atau mengubah data yang ada.
+Sudah punya database dari langkah sebelumnya? Cukup jalankan `npm run db:migrate`. Setiap migrasi (Langkah 2: dua kolom dan dua pemicu; Langkah 3: indeks unik pada umpan balik halaman; Langkah 3d: tabel `entry_faqs`; Langkah 4-experimental: tabel `github_imports`; Langkah 5: tabel `guides`, `guide_steps`, `guide_history` dan kolom jadwal publish pada `entries`; Langkah 6a: tabel `app_settings`, `settings_history`, dan kolom `repo` pada `github_imports`) bersifat aditif dan tidak menghapus atau mengubah data yang ada.
 
 Setelah seed berhasil, **hapus `ADMIN_PASSWORD` dari `.env.local`**. Seed aman dijalankan ulang: akun yang sudah ada tidak diubah, dan kata sandi tidak pernah dicetak.
 
@@ -62,6 +62,47 @@ Jadwal dijalankan setiap kali halaman website atau dashboard dibuka, jadi tidak 
 */5 * * * * cd /jalur/ke/app && npm run --silent jadwal:jalankan
 ```
 
+## Pengaturan
+
+Menu **Pengaturan** (hanya Admin) berisi:
+
+- **Nama produk**, tampil sebagai "{nama} Playbook" di navbar, dashboard, halaman masuk, dan judul halaman. Bawaannya "Lapaq".
+- **Repo GitHub**, berupa URL (`https://github.com/pemilik/repo`) atau `pemilik/repo`.
+- **Token GitHub**, disimpan **terenkripsi** (AES-256-GCM) dengan kunci `SETTINGS_ENCRYPTION_KEY` dari `.env.local`. Tanpa kunci itu token tidak bisa disimpan dari Pengaturan. Setelah disimpan, token tidak pernah ditampilkan lagi (hanya empat karakter terakhir) dan hanya bisa diganti atau dihapus. Pakai fine-grained token **hanya-baca**.
+- **URL toko demo** untuk tombol "Coba di toko demo".
+- Tombol **Uji koneksi**: satu permintaan baca ke GitHub. Bila token ternyata punya akses tulis, halaman memberi peringatan.
+
+Setiap perubahan tercatat di riwayat Pengaturan, tanpa nilai token. Kolom yang dikosongkan memakai `GITHUB_REPO`, `GITHUB_TOKEN`, dan `DEMO_STORE_URL` dari `.env.local`, jadi instalasi lama tetap berjalan tanpa diubah. Setiap tarikan PR mencatat repo asalnya, sehingga mengganti repo tidak mencampur PR bernomor sama dari repo lain.
+
+**Jangan mengganti `SETTINGS_ENCRYPTION_KEY`** setelah token disimpan. Bila terpaksa, halaman Pengaturan akan menandai token tidak bisa dibuka; isi ulang tokennya.
+
+## Memasang lebih dari satu produk di satu VPS
+
+Satu instalasi untuk satu produk. Untuk produk lain, jalankan kode yang sama sekali lagi dengan berkas lingkungan, database, folder gambar, port, dan domain sendiri. Semua pengaturan dibaca saat berjalan, jadi satu kali `npm run build` cukup untuk semua instalasi.
+
+| | Produk 1 | Produk 2 |
+| --- | --- | --- |
+| Domain | `playbook.lapaq.id` | `playbook.produkx.id` |
+| Berkas lingkungan | `/etc/playbook/lapaq.env` | `/etc/playbook/produkx.env` |
+| `DATABASE_PATH` | `/var/playbook/lapaq/playbook.db` | `/var/playbook/produkx/playbook.db` |
+| `MEDIA_DIR` | `/var/playbook/lapaq/media` | `/var/playbook/produkx/media` |
+| `PORT` | 3001 | 3002 |
+| `SETTINGS_ENCRYPTION_KEY` | kunci sendiri | kunci sendiri |
+
+Langkah untuk produk baru:
+
+1. Buat berkas lingkungan baru (lihat tabel), dengan `SETTINGS_ENCRYPTION_KEY` hasil `openssl rand -base64 32`.
+2. Buat database dan Admin pertama: `set -a; . /etc/playbook/produkx.env; set +a; npm run db:migrate && npm run db:seed`.
+3. Tambah satu blok domain di Nginx atau Caddy yang meneruskan ke port-nya (ingat `client_max_body_size 12m`).
+4. Tambah satu layanan, mis. templat systemd `playbook@.service` dengan `EnvironmentFile=/etc/playbook/%i.env` dan `ExecStart=/usr/bin/npm run start -- -p ${PORT}`, lalu `systemctl enable --now playbook@produkx`.
+5. Masuk sebagai Admin, buka **Pengaturan**, isi nama produk, repo, token, dan toko demo.
+
+Saat memperbarui kode: `git pull` dan `npm run build` sekali, lalu `npm run db:migrate` dan restart untuk setiap instalasi. Cadangkan database dan folder gambar setiap instalasi secara terpisah.
+
+**Pakai domain atau subdomain terpisah, jangan hanya beda port di domain yang sama.** Browser tidak membedakan cookie berdasarkan port, sehingga login di satu instalasi bisa menimpa sesi instalasi lain. Setiap instalasi Next.js memakai kira-kira 150 sampai 250 MB memori (perkiraan, belum diukur).
+
+Catatan: sejak Langkah 6a cookie sesi bernama `playbook_sesi` (sebelumnya `lapaq_sesi`), jadi semua pengguna perlu masuk ulang satu kali setelah pembaruan ini. Skrip `npm run db:seed:peta` (peta fitur awal) khusus untuk Lapaq; jangan dijalankan untuk produk lain.
+
 ## Lupa kata sandi
 
 - **Pengguna lain:** Admin membuka **Pengguna, Kelola**, lalu **Reset kata sandi**. Kata sandi sementara tampil sekali, semua sesi pengguna itu dicabut, dan ia wajib menggantinya saat masuk.
@@ -83,7 +124,7 @@ npm run typecheck   # pemeriksaan tipe TypeScript
 npm run lint        # ESLint
 ```
 
-Semua tes memakai database SQLite di memori dan folder sementara; database dan gambar Anda tidak tersentuh. Yang terpenting: `access.test.ts` dan `entries-access.test.ts` (matriks 3 peran × 3 status × 3 audiens × terbit/draf, dan Partner tidak pernah menerima `cannot_promise`), `actions.test.ts` (setiap Server Action menolak selain Admin dan database tetap utuh), `routes.test.ts` dan `media.test.ts` (akses, unggah, dan path traversal gambar), `admin-entries.test.ts` (aturan publish, arsip, pemicu database, dan validasi/penyimpanan FAQ), `entries-detail.test.ts` (langkah, galeri, dan FAQ hanya untuk yang berhak — FAQ sendiri tidak dibatasi peran), `preview.test.ts` (cookie pratinjau diabaikan untuk akun bukan Admin), `feedback.test.ts` (upsert umpan balik, Admin ditolak), `demo-store.test.ts` (validasi URL toko demo), `guides.test.ts` (aturan publish panduan, matriks akses, dan tautan fitur yang tidak boleh bocor), `schedule.test.ts` (jadwal publish, termasuk pembatalan otomatis bila aturan tidak lagi terpenuhi), dan `website-pages.test.ts` (halaman website benar-benar dirender ke HTML dan diperiksa, bukan hanya datanya — termasuk FAQ, tombol "Coba di toko demo", gambar promosi, Panduan skenario, dan "Baru minggu ini").
+Semua tes memakai database SQLite di memori dan folder sementara; database dan gambar Anda tidak tersentuh. Yang terpenting: `access.test.ts` dan `entries-access.test.ts` (matriks 3 peran × 3 status × 3 audiens × terbit/draf, dan Partner tidak pernah menerima `cannot_promise`), `actions.test.ts` (setiap Server Action menolak selain Admin dan database tetap utuh), `routes.test.ts` dan `media.test.ts` (akses, unggah, dan path traversal gambar), `admin-entries.test.ts` (aturan publish, arsip, pemicu database, dan validasi/penyimpanan FAQ), `entries-detail.test.ts` (langkah, galeri, dan FAQ hanya untuk yang berhak — FAQ sendiri tidak dibatasi peran), `preview.test.ts` (cookie pratinjau diabaikan untuk akun bukan Admin), `feedback.test.ts` (upsert umpan balik, Admin ditolak), `demo-store.test.ts` (validasi URL toko demo), `guides.test.ts` (aturan publish panduan, matriks akses, dan tautan fitur yang tidak boleh bocor), `schedule.test.ts` (jadwal publish, termasuk pembatalan otomatis bila aturan tidak lagi terpenuhi), `settings.test.ts` (validasi repo dan token, enkripsi, riwayat tanpa nilai rahasia, dan cadangan ke variabel lingkungan), dan `website-pages.test.ts` (halaman website benar-benar dirender ke HTML dan diperiksa, bukan hanya datanya — termasuk FAQ, tombol "Coba di toko demo", gambar promosi, Panduan skenario, dan "Baru minggu ini").
 
 ## Website dan pratinjau Admin
 
@@ -118,7 +159,8 @@ app/
 │   │                   entries (baca untuk pembaca, termasuk detail langkah/galeri/FAQ),
 │   │                   preview (pratinjau Admin), demo-store (validasi DEMO_STORE_URL),
 │   │                   feedback, media, users, auth, password, dal, peta-fitur,
-│   │                   guides dan guide-rules (panduan skenario), schedule (jadwal publish)
+│   │                   guides dan guide-rules (panduan skenario), schedule (jadwal publish),
+│   │                   settings dan secret-box (Pengaturan, enkripsi token)
 │   └── proxy.ts        pengalihan awal ke /masuk bila tanpa cookie sesi
 ├── drizzle/            berkas migrasi (ikut git)
 ├── scripts/            migrate, seed-admin, seed-peta, admin-reset, publish-due (jadwal publish untuk cron)

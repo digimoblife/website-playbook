@@ -7,8 +7,11 @@ import { PreviewSwitch } from "@/components/preview-switch";
 export function Navbar({
   user,
   previewRole,
+  productName,
 }: {
   user: SessionUser;
+  /** Dari Pengaturan (lib/settings.ts). */
+  productName: string;
   /** Diisi hanya untuk Admin (lihat lib/preview.ts). Marketing/Partner sungguhan: null. */
   previewRole?: PreviewRole | null;
 }) {
@@ -20,7 +23,7 @@ export function Navbar({
       <header className="navbar">
         <div className="navbar-inner">
           <Link href="/" className="brand">
-            Lapaq Playbook
+            {productName} Playbook
           </Link>
           <nav aria-label="Menu utama" className="navbar-nav">
             <Link href="/baru" className="nav-link">

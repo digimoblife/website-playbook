@@ -8,6 +8,8 @@ vi.mock("@/lib/github-api", () => ({ listPullRequests: vi.fn() }));
 import { listPullRequests } from "@/lib/github-api";
 import { listPullRequestsWithStatus } from "@/lib/github-import-status";
 
+const CONFIG = { repo: "bajaklautmalaka/lapaq", token: "t" };
+
 let db: AppDb;
 let adminId: number;
 
@@ -23,19 +25,19 @@ const pr6 = { number: 6, title: "PR enam", url: "https://x/6", state: "closed" a
 describe("listPullRequestsWithStatus", () => {
   it("meneruskan galat dari listPullRequests apa adanya, tanpa menyentuh database", async () => {
     vi.mocked(listPullRequests).mockResolvedValue({ ok: false, error: "Batas panggilan GitHub API tercapai." });
-    const res = await listPullRequestsWithStatus(db);
+    const res = await listPullRequestsWithStatus(CONFIG, db);
     expect(res).toEqual({ ok: false, error: "Batas panggilan GitHub API tercapai." });
   });
 
   it("PR yang belum pernah ditarik: imports kosong", async () => {
     vi.mocked(listPullRequests).mockResolvedValue({ ok: true, data: [pr7] });
-    const res = await listPullRequestsWithStatus(db);
+    const res = await listPullRequestsWithStatus(CONFIG, db);
     expect(res).toEqual({ ok: true, data: [{ ...pr7, imports: [] }] });
   });
 
   it("PR yang sudah ditarik satu kali: imports berisi satu baris dengan entryId yang benar", async () => {
     const pulled = pullFromGithub(
-      { number: 7, title: pr7.title, url: pr7.url },
+      { number: 7, title: pr7.title, url: pr7.url, repo: CONFIG.repo },
       { title: "T", summary: "", problem: "", forWhom: "", explanation: "", kind: "core", nature: "new" },
       adminId,
       db,
@@ -44,7 +46,7 @@ describe("listPullRequestsWithStatus", () => {
     if (!pulled.ok) return;
 
     vi.mocked(listPullRequests).mockResolvedValue({ ok: true, data: [pr7, pr6] });
-    const res = await listPullRequestsWithStatus(db);
+    const res = await listPullRequestsWithStatus(CONFIG, db);
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     const byNumber = new Map(res.data.map((p) => [p.number, p]));
@@ -54,13 +56,13 @@ describe("listPullRequestsWithStatus", () => {
 
   it("PR yang ditarik dua kali: imports berisi dua baris", async () => {
     const first = pullFromGithub(
-      { number: 7, title: pr7.title, url: pr7.url },
+      { number: 7, title: pr7.title, url: pr7.url, repo: CONFIG.repo },
       { title: "T", summary: "", problem: "", forWhom: "", explanation: "", kind: "core", nature: "new" },
       adminId,
       db,
     );
     const second = pullFromGithub(
-      { number: 7, title: pr7.title, url: pr7.url },
+      { number: 7, title: pr7.title, url: pr7.url, repo: CONFIG.repo },
       { title: "T", summary: "", problem: "", forWhom: "", explanation: "", kind: "core", nature: "new" },
       adminId,
       db,
@@ -69,10 +71,22 @@ describe("listPullRequestsWithStatus", () => {
     if (!first.ok || !second.ok) return;
 
     vi.mocked(listPullRequests).mockResolvedValue({ ok: true, data: [pr7] });
-    const res = await listPullRequestsWithStatus(db);
+    const res = await listPullRequestsWithStatus(CONFIG, db);
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.data[0].imports).toHaveLength(2);
     expect(new Set(res.data[0].imports.map((i) => i.entryId))).toEqual(new Set([first.id, second.id]));
+  });
+
+  it("tarikan dari repo LAIN dengan nomor PR sama tidak dihitung sebagai sudah ditarik", async () => {
+    pullFromGithub(
+      { number: 7, title: "PR tujuh repo lain", url: "https://x/lain/7", repo: "orang-lain/produk-x" },
+      { title: "T", summary: "", problem: "", forWhom: "", explanation: "", kind: "core", nature: "new" },
+      adminId,
+      db,
+    );
+    vi.mocked(listPullRequests).mockResolvedValue({ ok: true, data: [pr7] });
+    const res = await listPullRequestsWithStatus(CONFIG, db);
+    expect(res.ok && res.data[0].imports).toEqual([]);
   });
 });

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/dal";
 import { homePathFor } from "@/lib/labels";
+import { getProductName } from "@/lib/settings";
 import { ChangePasswordForm } from "./change-password-form";
 
 export const metadata: Metadata = { title: "Ganti kata sandi" };
@@ -12,7 +13,7 @@ export default async function GantiKataSandiPage() {
   return (
     <>
       <span className="brand" style={{ display: "flex", justifyContent: "center", marginBottom: "1.25rem" }}>
-        Lapaq Playbook
+        {getProductName()} Playbook
       </span>
       <div className="card">
         <h1>Ganti kata sandi</h1>
