@@ -1,21 +1,18 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
 import { listEntriesFor } from "@/lib/entries";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, isWithinLastDays } from "@/lib/format";
 import { requireUser } from "@/lib/dal";
 import { ROLE_LABEL } from "@/lib/labels";
 import { getWebsiteViewer } from "@/lib/preview";
-
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export default async function BerandaPage() {
   const user = await requireUser();
   const viewer = await getWebsiteViewer(user);
   const visible = listEntriesFor(viewer);
   // "Baru minggu ini" = terbit dalam 7 hari terakhir, terbaru di atas.
-  const weekAgo = Date.now() - WEEK_MS;
   const newest = visible
-    .filter((entry) => entry.publishedAt && entry.publishedAt.getTime() >= weekAgo)
+    .filter((entry) => isWithinLastDays(entry.publishedAt, 7))
     .sort((a, b) => b.publishedAt!.getTime() - a.publishedAt!.getTime());
 
   return (
