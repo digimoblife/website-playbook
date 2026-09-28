@@ -554,6 +554,30 @@ a:hover {
     display: none;
   }
 
+  /* Di ponsel menu turun ke baris kedua dan boleh terlipat, supaya semua tombol (termasuk
+     Keluar) terlihat tanpa harus menggulir navbar ke samping. */
+  .navbar {
+    height: auto;
+    min-height: var(--navbar-height);
+  }
+
+  .navbar-inner {
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .navbar-nav {
+    width: 100%;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    gap: 0.25rem 0.5rem;
+  }
+
+  .navbar-nav .nav-link {
+    padding: 0 0.25rem;
+  }
+
   h1 {
     font-size: 1.5rem;
   }
@@ -1081,4 +1105,16 @@ input[type="file"] {
   .catalog-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Jadwal publish di kartu Pengaturan publikasi (Langkah 5c). */
+.schedule-box {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.schedule-box h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
 }

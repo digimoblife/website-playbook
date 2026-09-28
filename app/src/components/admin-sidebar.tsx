@@ -7,10 +7,12 @@ import { logout } from "@/app/actions/logout";
 const MENU = [
   { href: "/admin", label: "Inbox" },
   { href: "/admin/entri", label: "Semua entri" },
+  { href: "/admin/panduan", label: "Panduan skenario" },
   { href: "/admin/github", label: "Tarik dari GitHub" },
   { href: "/admin/arsip", label: "Arsip" },
   { href: "/admin/riwayat", label: "Riwayat" },
   { href: "/admin/pengguna", label: "Pengguna" },
+  { href: "/admin/pengaturan", label: "Pengaturan" },
 ];
 
 // "/admin" hanya aktif untuk dirinya sendiri; menu lain juga aktif di halaman turunannya.
@@ -19,12 +21,20 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function AdminSidebar({ userName, roleLabel }: { userName: string; roleLabel: string }) {
+export function AdminSidebar({
+  userName,
+  roleLabel,
+  productName,
+}: {
+  userName: string;
+  roleLabel: string;
+  productName: string;
+}) {
   const pathname = usePathname();
   return (
     <aside className="sidebar">
       <Link href="/admin" className="brand">
-        Lapaq Playbook
+        {productName} Playbook
       </Link>
       <nav aria-label="Menu dashboard" className="sidebar-nav">
         {MENU.map((item) => (

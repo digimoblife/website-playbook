@@ -5,7 +5,7 @@ import { CopyButton } from "@/components/copy-button";
 import { FeedbackWidget } from "@/components/feedback-widget";
 import { StatusBadge } from "@/components/status-badge";
 import { requireUser } from "@/lib/dal";
-import { getDemoStoreUrl } from "@/lib/demo-store";
+import { getDemoStoreUrl } from "@/lib/settings";
 import { getEntryDetailBySlugFor, type EntryDetailForReader } from "@/lib/entries";
 import { formatDateTime } from "@/lib/format";
 import { getWebsiteViewer } from "@/lib/preview";
@@ -156,11 +156,33 @@ export default async function EntriPage({ params }: { params: Promise<Params> })
         </section>
       )}
 
-      {entry.promoText && (
-        <section className="card">
-          <h2>Materi siap pakai</h2>
-          <p style={{ whiteSpace: "pre-line" }}>{entry.promoText}</p>
-          <CopyButton text={entry.promoText} />
+      {(entry.promoText || entry.promoImages.length > 0) && (
+        <section className="card" aria-labelledby="materi-heading">
+          <h2 id="materi-heading">Materi siap pakai</h2>
+          {entry.promoText && (
+            <>
+              <p style={{ whiteSpace: "pre-line" }}>{entry.promoText}</p>
+              <CopyButton text={entry.promoText} />
+            </>
+          )}
+          {entry.promoImages.length > 0 && (
+            <ul className="image-grid">
+              {entry.promoImages.map((image, index) => (
+                <li key={image.id} className="image-item">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- gambar dilayani rute /media yang wajib login */}
+                  <img
+                    className="thumb"
+                    src={`/media/${image.id}`}
+                    alt={`Gambar promosi ${index + 1}: ${entry.title}`}
+                    loading="lazy"
+                  />
+                  <a href={`/media/${image.id}?unduh=1`} className="btn btn-secondary" download>
+                    Unduh gambar promosi {index + 1}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 

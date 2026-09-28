@@ -3,6 +3,7 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/status-badge";
 import { listEntriesAdmin, parseAdminFilters } from "@/lib/admin-entries";
 import { requireAdmin } from "@/lib/dal";
+import { runDueSchedules } from "@/lib/schedule";
 import { AUDIENCES, KINDS, STATUSES } from "@/lib/domain";
 import { formatDateTime } from "@/lib/format";
 import { AUDIENCE_LABEL, KIND_LABEL, NATURE_LABEL, STATUS_LABEL } from "@/lib/labels";
@@ -15,6 +16,7 @@ export default async function SemuaEntriPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requireAdmin();
+  runDueSchedules();
   const filters = parseAdminFilters(await searchParams);
   const rows = listEntriesAdmin(filters);
   const filtered = Object.values(filters).some((value) => value !== undefined);

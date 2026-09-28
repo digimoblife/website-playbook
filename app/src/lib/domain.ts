@@ -23,6 +23,19 @@ export type MediaKind = (typeof MEDIA_KINDS)[number];
 export const MEDIA_SOURCES = ["auto", "manual"] as const;
 export type MediaSource = (typeof MEDIA_SOURCES)[number];
 
+// Perubahan yang masuk lewat webhook GitHub (Langkah 6c).
+export const GITHUB_CHANGE_KINDS = ["pr", "commit"] as const;
+export type GithubChangeKind = (typeof GITHUB_CHANGE_KINDS)[number];
+export const GITHUB_CHANGE_STATES = ["baru", "ditinjau"] as const;
+export type GithubChangeState = (typeof GITHUB_CHANGE_STATES)[number];
+// Hasil triase (Langkah 6d, lib/triage.ts).
+export const TRIAGE_BUCKETS = ["kandidat", "perbaikan", "arsip"] as const;
+export type TriageBucket = (typeof TRIAGE_BUCKETS)[number];
+
+// Hasil terakhir skenario screenshot otomatis (Langkah 6e).
+export const SCENARIO_STATUSES = ["berhasil", "gagal"] as const;
+export type ScenarioStatus = (typeof SCENARIO_STATUSES)[number];
+
 // Tag kebutuhan pelanggan: pilihan tetap. Yang disimpan di database adalah `key`.
 export const NEEDS_TAGS = [
   { key: "menarik-pembeli", label: "Menarik pembeli" },
@@ -57,4 +70,5 @@ export const LIMITS = {
   faqs: 10,
   faqQuestion: 200,
   faqAnswer: 500,
+  guideSteps: 15,
 } as const;

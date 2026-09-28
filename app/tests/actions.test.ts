@@ -6,7 +6,9 @@ import type { AppDb } from "@/db/client";
 import { entries, media } from "@/db/schema";
 import { archiveEntry, createEntry, publishEntry, saveEntry } from "@/lib/admin-entries";
 import { createSession } from "@/lib/auth";
-import { insertUserRow, makeTestDb, makeWorld, snapshot, validInput } from "./helpers";
+import { archiveGuide, createGuide, publishGuide, saveGuide } from "@/lib/guides";
+import { scheduleEntryPublish } from "@/lib/schedule";
+import { insertUserRow, makeTestDb, makeWorld, snapshot, validGuideInput, validInput } from "./helpers";
 
 const state = vi.hoisted(() => ({ token: undefined as string | undefined, db: undefined as unknown }));
 vi.mock("@/lib/session", () => ({
@@ -28,6 +30,8 @@ import {
   restoreEntryAction,
   saveEntryAction,
   unpublishEntryAction,
+  scheduleEntryAction,
+  cancelScheduleAction,
 } from "@/app/admin/entri/actions";
 import {
   createUserAction,
@@ -35,6 +39,23 @@ import {
   setActiveAction,
   updateUserAction,
 } from "@/app/admin/pengguna/actions";
+import {
+  archiveGuideAction,
+  createGuideAction,
+  publishGuideAction,
+  restoreGuideAction,
+  saveGuideAction,
+  unpublishGuideAction,
+} from "@/app/admin/panduan/actions";
+import {
+  clearGithubTokenAction,
+  saveGithubTokenAction,
+  saveSettingsAction,
+  testGithubConnectionAction,
+} from "@/app/admin/pengaturan/actions";
+import { setGithubToken } from "@/lib/settings";
+import { createEntryFromCommitAction, markChangeReviewedAction } from "@/app/admin/github/actions";
+import { githubChanges } from "@/db/schema";
 
 type Outcome = { redirect: string } | { value: unknown };
 
@@ -63,6 +84,12 @@ let w: ReturnType<typeof makeWorld> & {
   archived: number;
   mediaId: number;
   inactiveAdminToken: string;
+  guideDraft: number;
+  guidePublished: number;
+  guideArchived: number;
+  scheduled: number;
+  changePr: number;
+  changeCommit: number;
 };
 
 beforeEach(() => {
@@ -86,6 +113,38 @@ beforeEach(() => {
     .values({ entryId: draft, kind: "screenshot", source: "manual", filePath: "0123456789abcdef0123456789abcdef.png" })
     .returning()
     .get();
+  const makeGuide = (title: string, slug: string) => {
+    const r = createGuide({ title, actorId: base.admin.id }, db);
+    if (!r.ok) throw new Error(r.error);
+    saveGuide(r.id, validGuideInput({ title, slug }), base.admin.id, db);
+    return r.id;
+  };
+  const guideDraft = makeGuide("Panduan Draf", "panduan-draf");
+  const guidePublished = makeGuide("Panduan Terbit", "panduan-terbit");
+  publishGuide(guidePublished, base.admin.id, db);
+  const guideArchived = makeGuide("Panduan Arsip", "panduan-arsip");
+  archiveGuide(guideArchived, base.admin.id, db);
+  const scheduled = make("Terjadwal", "terjadwal");
+  const sched = scheduleEntryPublish(scheduled, new Date(Date.now() + 3600_000).toISOString(), base.admin.id, db);
+  if (!sched.ok) throw new Error(sched.error);
+  process.env.SETTINGS_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+  const tokenSaved = setGithubToken("ghp_" + "t".repeat(36), base.admin.id, db);
+  if (!tokenSaved.ok) throw new Error(tokenSaved.error);
+  const change = (kind: "pr" | "commit", n: number) =>
+    db
+      .insert(githubChanges)
+      .values({
+        repo: "a/b",
+        kind,
+        prNumber: kind === "pr" ? n : null,
+        commitSha: kind === "commit" ? String(n).repeat(40).slice(0, 40) : null,
+        title: `Perubahan ${n}`,
+        url: "https://github.com/a/b",
+      })
+      .returning()
+      .get().id;
+  const changePr = change("pr", 5);
+  const changeCommit = change("commit", 7);
   const inactive = insertUserRow(db, { email: "admin-mati@uji.lokal", role: "admin", active: false });
   w = {
     ...base,
@@ -94,6 +153,12 @@ beforeEach(() => {
     archived,
     mediaId: m.id,
     inactiveAdminToken: createSession(inactive.id, db).token,
+    guideDraft,
+    guidePublished,
+    guideArchived,
+    scheduled,
+    changePr,
+    changeCommit,
   };
 });
 
@@ -124,6 +189,43 @@ const cases = (): Case[] => [
   { name: "unpublishEntryAction", call: () => unpublishEntryAction(undefined, fd({ id: w.published })), admin: okValue },
   { name: "archiveEntryAction", call: () => archiveEntryAction(undefined, fd({ id: w.draft })), admin: okValue },
   { name: "restoreEntryAction", call: () => restoreEntryAction(undefined, fd({ id: w.archived })), admin: okValue },
+  {
+    name: "scheduleEntryAction",
+    call: () => scheduleEntryAction(w.draft, new Date(Date.now() + 2 * 3600_000).toISOString()),
+    admin: okValue,
+  },
+  { name: "cancelScheduleAction", call: () => cancelScheduleAction(undefined, fd({ id: w.scheduled })), admin: okValue },
+  { name: "markChangeReviewedAction", call: () => markChangeReviewedAction(undefined, fd({ id: w.changePr })), admin: okValue },
+  {
+    name: "createEntryFromCommitAction",
+    call: () => createEntryFromCommitAction(undefined, fd({ id: w.changeCommit })),
+    admin: (o) => expect((o as { redirect: string }).redirect).toMatch(/^\/admin\/entri\/\d+$/),
+  },
+  {
+    name: "saveSettingsAction",
+    call: () => saveSettingsAction(undefined, fd({ productName: "Produk Baru", githubRepo: "a/b", demoStoreUrl: "" })),
+    admin: okValue,
+  },
+  {
+    name: "saveGithubTokenAction",
+    call: () => saveGithubTokenAction(undefined, fd({ token: "ghp_" + "n".repeat(36) })),
+    admin: okValue,
+  },
+  { name: "clearGithubTokenAction", call: () => clearGithubTokenAction(), admin: okValue },
+  {
+    name: "createGuideAction",
+    call: () => createGuideAction(undefined, fd({ title: "Panduan Dari Aksi" })),
+    admin: (o) => expect((o as { redirect: string }).redirect).toMatch(/^\/admin\/panduan\/\d+$/),
+  },
+  {
+    name: "saveGuideAction",
+    call: () => saveGuideAction(w.guideDraft, validGuideInput({ title: "Panduan Diubah", slug: "panduan-diubah" })),
+    admin: okValue,
+  },
+  { name: "publishGuideAction", call: () => publishGuideAction(undefined, fd({ id: w.guideDraft })), admin: okValue },
+  { name: "unpublishGuideAction", call: () => unpublishGuideAction(undefined, fd({ id: w.guidePublished })), admin: okValue },
+  { name: "archiveGuideAction", call: () => archiveGuideAction(undefined, fd({ id: w.guideDraft })), admin: okValue },
+  { name: "restoreGuideAction", call: () => restoreGuideAction(undefined, fd({ id: w.guideArchived })), admin: okValue },
   { name: "deleteMediaAction", call: () => deleteMediaAction(undefined, fd({ id: w.mediaId })), admin: okValue },
   { name: "resetPasswordAction", call: () => resetPasswordAction(undefined, fd({ id: w.marketing.id })), admin: okValue },
   {
@@ -165,6 +267,17 @@ describe("Server Action: selain Admin ditolak dan database tidak berubah", () =>
       });
     });
   }
+
+  it("Uji koneksi GitHub: selain Admin dialihkan tanpa memanggil GitHub", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    for (const [, token, target] of CALLERS) {
+      state.token = token();
+      expect(await run(() => testGithubConnectionAction())).toEqual({ redirect: target });
+    }
+    expect(fetchSpy).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
 
   it("penolakan terjadi SEBELUM input dibaca: masukan rusak pun hanya menghasilkan pengalihan", async () => {
     state.token = w.tokens.partner;

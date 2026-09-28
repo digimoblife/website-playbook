@@ -16,12 +16,15 @@ export function ActionForm({
   label,
   variant = "secondary",
   confirmText,
+  extra,
 }: {
   action: Action;
   id: number;
   label: string;
   variant?: "primary" | "secondary" | "danger";
   confirmText?: string;
+  /** Isian tersembunyi tambahan selain id (mis. kelompok tujuan). */
+  extra?: Record<string, string>;
 }) {
   const [confirming, setConfirming] = useState(false);
   // Aksi server diteruskan langsung (bukan dibungkus fungsi klien) supaya formulir tetap
@@ -34,6 +37,8 @@ export function ActionForm({
   return (
     <form action={formAction} onSubmit={() => setConfirming(false)} className="row-action">
       <input type="hidden" name="id" value={id} />
+      {extra &&
+        Object.entries(extra).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)}
       {confirmText && !confirming ? (
         <button type="button" className={`btn btn-${variant}`} onClick={() => setConfirming(true)}>
           {label}

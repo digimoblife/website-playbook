@@ -7,20 +7,23 @@ import { PreviewSwitch } from "@/components/preview-switch";
 export function Navbar({
   user,
   previewRole,
+  productName,
 }: {
   user: SessionUser;
+  /** Dari Pengaturan (lib/settings.ts). */
+  productName: string;
   /** Diisi hanya untuk Admin (lihat lib/preview.ts). Marketing/Partner sungguhan: null. */
   previewRole?: PreviewRole | null;
 }) {
   return (
     <>
-      {/* .navbar punya tinggi tetap (--navbar-height), jadi pita pratinjau HARUS di luar
+      {/* .navbar punya tinggi tetap (--navbar-height) di layar lebar, jadi pita pratinjau HARUS di luar
           <header> ini sebagai baris kedua, bukan di dalamnya — kalau tidak, keduanya akan
           saling menimpa karena header dipaksa muat dalam satu tinggi baris navbar saja. */}
       <header className="navbar">
         <div className="navbar-inner">
           <Link href="/" className="brand">
-            Lapaq Playbook
+            {productName} Playbook
           </Link>
           <nav aria-label="Menu utama" className="navbar-nav">
             <Link href="/baru" className="nav-link">
@@ -28,6 +31,9 @@ export function Navbar({
             </Link>
             <Link href="/katalog" className="nav-link">
               Katalog
+            </Link>
+            <Link href="/panduan" className="nav-link">
+              Panduan
             </Link>
             {user.role === "admin" && (
               <Link href="/admin" className="nav-link">

@@ -43,6 +43,48 @@
       "when": 1790168822770,
       "tag": "0005_langkah4exp_github_imports",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790434214851,
+      "tag": "0006_langkah5_panduan_jadwal",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1790487000950,
+      "tag": "0007_langkah6a_pengaturan",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790488589651,
+      "tag": "0008_langkah6c_webhook",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1790577949182,
+      "tag": "0009_langkah6d_triase",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1790579261193,
+      "tag": "0010_langkah6d_usulan_ai",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1790579462776,
+      "tag": "0011_langkah6e_screenshot",
+      "breakpoints": true
     }
   ]
 }

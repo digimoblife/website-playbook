@@ -13,6 +13,7 @@ import { cookies } from "next/headers";
 import { isAdmin, type Viewer } from "@/lib/access";
 import type { SessionUser } from "@/lib/auth";
 import { DEFAULT_PREVIEW_ROLE, isPreviewRole, PREVIEW_COOKIE, type PreviewRole } from "@/lib/preview-constants";
+import { runDueSchedules } from "@/lib/schedule";
 
 export {
   DEFAULT_PREVIEW_ROLE,
@@ -37,6 +38,9 @@ export async function getPreviewRole(): Promise<PreviewRole> {
  * memakai peran akun mereka sendiri; cookie pratinjau tidak pernah dibaca untuk mereka.
  */
 export async function getWebsiteViewer(user: SessionUser): Promise<Viewer> {
+  // Setiap halaman website memanggil fungsi ini sebelum membaca entri, jadi jadwal publish yang
+  // sudah jatuh tempo diterbitkan dulu di sini (lib/schedule.ts).
+  runDueSchedules();
   if (!isAdmin(user)) return { role: user.role, active: user.active };
   const role = await getPreviewRole();
   return { role, active: true };

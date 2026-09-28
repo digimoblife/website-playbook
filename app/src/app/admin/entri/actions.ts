@@ -14,6 +14,8 @@ import {
 } from "@/lib/admin-entries";
 import { requireAdmin } from "@/lib/dal";
 import { deleteImage } from "@/lib/media";
+import { cancelEntrySchedule, scheduleEntryPublish } from "@/lib/schedule";
+import { runScenario, saveScenario } from "@/lib/screenshot-runner";
 
 // Setiap action di sini memanggil requireAdmin() PERTAMA, sebelum membaca input apa pun.
 // Pengguna selain Admin dialihkan dan tidak ada yang berubah di database.
@@ -111,4 +113,43 @@ export async function deleteMediaAction(
   if (!result.ok) return { ok: false, error: result.error };
   revalidateEntries();
   return { ok: true, message: "Gambar dihapus." };
+}
+
+/** `at` adalah waktu jadwal dalam format ISO (dikonversi dari zona waktu perangkat Admin di editor). */
+export async function scheduleEntryAction(id: number, at: unknown): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  if (!Number.isInteger(id) || id < 1) return { ok: false, error: "Entri tidak valid." };
+  const result = scheduleEntryPublish(id, at, admin.id);
+  if (!result.ok) return { ok: false, error: result.error };
+  revalidateEntries();
+  return { ok: true, message: result.message, entry: result.entry };
+}
+
+export async function cancelScheduleAction(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  return lifecycle(formData, (id, actorId) => cancelEntrySchedule(id, actorId));
+}
+
+// ---------- Screenshot otomatis (Langkah 6e) ----------
+
+export async function saveScenarioAction(entryId: number, script: unknown): Promise<ActionResult> {
+  await requireAdmin();
+  if (!Number.isInteger(entryId) || entryId < 1) return { ok: false, error: "Entri tidak valid." };
+  const result = saveScenario(entryId, script);
+  if (!result.ok) return { ok: false, error: result.error };
+  revalidateEntries();
+  return { ok: true, message: ["Skenario disimpan.", ...result.warnings].join(" ") };
+}
+
+/** Menjalankan skenario sekarang pada toko demo. Bisa makan waktu sampai sekitar satu menit. */
+export async function runScenarioAction(entryId: number): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  if (!Number.isInteger(entryId) || entryId < 1) return { ok: false, error: "Entri tidak valid." };
+  const outcome = await runScenario(entryId, admin.id);
+  revalidateEntries();
+  return outcome.status === "berhasil"
+    ? { ok: true, message: `Screenshot diperbarui (${outcome.photos} foto).` }
+    : { ok: false, error: `Screenshot gagal diperbarui: ${outcome.error}` };
 }

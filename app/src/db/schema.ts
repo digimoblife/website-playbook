@@ -11,11 +11,15 @@ import {
 } from "drizzle-orm/sqlite-core";
 import {
   AUDIENCES,
+  GITHUB_CHANGE_KINDS,
+  GITHUB_CHANGE_STATES,
   KINDS,
+  TRIAGE_BUCKETS,
   MEDIA_KINDS,
   MEDIA_SOURCES,
   NATURES,
   ROLES,
+  SCENARIO_STATUSES,
   STATUSES,
 } from "../lib/domain";
 
@@ -105,6 +109,11 @@ export const entries = sqliteTable(
       .notNull()
       .default(false),
     publishedAt: integer("published_at", { mode: "timestamp_ms" }),
+    // Jadwal publish yang dipasang Admin (Langkah 5). Kosong berarti tidak terjadwal. Saat waktunya
+    // tiba, lib/schedule.ts memeriksa ulang aturan publish lalu menerbitkannya atas nama
+    // scheduled_by; bila aturan tidak lagi terpenuhi, jadwal dibatalkan dan dicatat di riwayat.
+    scheduledPublishAt: integer("scheduled_publish_at", { mode: "timestamp_ms" }),
+    scheduledBy: integer("scheduled_by").references(() => users.id),
     // Entri tidak pernah dihapus, hanya diarsipkan. Entri terarsip selalu is_published = false
     // (dijaga oleh pemicu database di migrasi 0002 dan oleh lib/admin-entries.ts).
     archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
@@ -134,7 +143,13 @@ export const media = sqliteTable(
     kind: text("kind", { enum: MEDIA_KINDS }).notNull(),
     source: text("source", { enum: MEDIA_SOURCES }).notNull(),
     filePath: text("file_path").notNull(),
+    // "Screenshot gagal diperbarui" (Langkah 6e): gambar otomatis yang skenarionya gagal. TIDAK
+    // ditampilkan ke pembaca (lib/entries.ts, lib/media.ts); Admin melihat tandanya di editor.
     failed: integer("failed", { mode: "boolean" }).notNull().default(false),
+    // Untuk screenshot otomatis: "foto-1", "foto-2", ... sesuai urutan perintah foto di skenario.
+    // Baris media yang sama dipakai ulang setiap kali skenario dijalankan, jadi tautan ke langkah
+    // "Cara pakai" tidak putus. Kosong untuk unggahan manual.
+    autoKey: text("auto_key"),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(nowMs),
@@ -143,6 +158,7 @@ export const media = sqliteTable(
     check("media_kind_check", oneOf(t.kind, MEDIA_KINDS)),
     check("media_source_check", oneOf(t.source, MEDIA_SOURCES)),
     index("media_entry_id_idx").on(t.entryId),
+    uniqueIndex("media_entry_auto_key_unq").on(t.entryId, t.autoKey),
   ],
 );
 
@@ -223,6 +239,9 @@ export const githubImports = sqliteTable(
     prNumber: integer("pr_number").notNull(),
     prTitle: text("pr_title").notNull(),
     prUrl: text("pr_url").notNull(),
+    // Repo asal ("pemilik/repo", Langkah 6a). Status "sudah ditarik" dicocokkan per repo, jadi
+    // mengganti repo di Pengaturan tidak mencampur PR bernomor sama dari repo lain.
+    repo: text("repo"),
     entryId: integer("entry_id")
       .notNull()
       .references(() => entries.id, { onDelete: "cascade" }),
@@ -234,4 +253,202 @@ export const githubImports = sqliteTable(
       .references(() => users.id),
   },
   (t) => [index("github_imports_pr_number_idx").on(t.prNumber)],
+);
+
+// Panduan skenario (Langkah 5), mis. "Menunjukkan Lapaq ke calon pelanggan dalam 10 menit".
+// Aturan terlihatnya SAMA dengan entri (status, audiens, terbit, arsip) dan diputuskan oleh
+// lib/access.ts; panduan tidak punya "Jangan dijanjikan", jadi tidak ada kolom yang disembunyikan.
+export const guides = sqliteTable(
+  "guides",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    slug: text("slug").notNull().unique(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull().default(""),
+    // Kapan panduan ini dipakai dan apa yang perlu disiapkan.
+    intro: text("intro").notNull().default(""),
+    // Default aman: panduan baru selalu Internal, beraudiens Internal, belum terbit.
+    status: text("status", { enum: STATUSES }).notNull().default("internal"),
+    audience: text("audience", { enum: AUDIENCES })
+      .notNull()
+      .default("internal"),
+    isPublished: integer("is_published", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    publishedAt: integer("published_at", { mode: "timestamp_ms" }),
+    // Panduan terarsip selalu is_published = false (dijaga pemicu database di migrasi 0006).
+    archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+  },
+  (t) => [
+    check("guides_status_check", oneOf(t.status, STATUSES)),
+    check("guides_audience_check", oneOf(t.audience, AUDIENCES)),
+    index("guides_visibility_idx").on(t.isPublished, t.status, t.audience),
+  ],
+);
+
+export const guideSteps = sqliteTable(
+  "guide_steps",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    guideId: integer("guide_id")
+      .notNull()
+      .references(() => guides.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    text: text("text").notNull(),
+    // Halaman fitur yang dirujuk langkah ini (opsional). Tautan hanya ditampilkan ke pembaca
+    // yang boleh melihat entri itu (lib/guides.ts); bila entrinya dihapus, tautan menjadi kosong.
+    entryId: integer("entry_id").references(() => entries.id, { onDelete: "set null" }),
+  },
+  (t) => [unique("guide_steps_guide_position_unq").on(t.guideId, t.position)],
+);
+
+export const guideHistory = sqliteTable(
+  "guide_history",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    guideId: integer("guide_id")
+      .notNull()
+      .references(() => guides.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    at: integer("at", { mode: "timestamp_ms" }).notNull().default(nowMs),
+    summary: text("summary").notNull(),
+  },
+  (t) => [index("guide_history_guide_id_idx").on(t.guideId)],
+);
+
+// Pengaturan instalasi (Langkah 6a). Selalu tepat SATU baris (id = 1). Kolom yang kosong berarti
+// "pakai nilai dari variabel lingkungan" supaya instalasi lama tetap berjalan (lib/settings.ts).
+export const appSettings = sqliteTable(
+  "app_settings",
+  {
+    id: integer("id").primaryKey(),
+    productName: text("product_name").notNull().default("Lapaq"),
+    githubRepo: text("github_repo"),
+    // Token GitHub TERENKRIPSI (AES-256-GCM, kunci SETTINGS_ENCRYPTION_KEY di lingkungan server).
+    // Nilai aslinya tidak pernah disimpan, dicatat, atau dikirim kembali ke browser.
+    githubTokenEncrypted: text("github_token_encrypted"),
+    githubTokenLast4: text("github_token_last4"),
+    demoStoreUrl: text("demo_store_url"),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+  },
+  (t) => [check("app_settings_single_row", sql`${t.id} = 1`)],
+);
+
+export const settingsHistory = sqliteTable("settings_history", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  at: integer("at", { mode: "timestamp_ms" }).notNull().default(nowMs),
+  // Tidak pernah berisi nilai rahasia; untuk token hanya "diganti (akhiran abcd)" atau "dihapus".
+  summary: text("summary").notNull(),
+});
+
+// Perubahan yang masuk lewat webhook GitHub (Langkah 6c): PR yang di-merge ke branch utama dan
+// commit langsung ke branch utama ("perlu ditinjau"). Hanya dilihat Admin. Tidak ada yang terbit
+// otomatis: Admin yang memutuskan membuat draf, membuat entri, atau menandainya sudah ditinjau.
+export const githubChanges = sqliteTable(
+  "github_changes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    repo: text("repo").notNull(),
+    kind: text("kind", { enum: GITHUB_CHANGE_KINDS }).notNull(),
+    prNumber: integer("pr_number"),
+    commitSha: text("commit_sha"),
+    title: text("title").notNull(),
+    body: text("body").notNull().default(""),
+    url: text("url").notNull(),
+    // Larik JSON nama file yang berubah (bukan isi). Untuk PR diisi saat draf dibuat (6d).
+    files: text("files").notNull().default("[]"),
+    happenedAt: integer("happened_at", { mode: "timestamp_ms" }),
+    receivedAt: integer("received_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+    state: text("state", { enum: GITHUB_CHANGE_STATES }).notNull().default("baru"),
+    // Hasil triase otomatis saat diterima (Langkah 6d, lib/triage.ts). Admin bisa mengubahnya.
+    bucket: text("bucket", { enum: TRIAGE_BUCKETS }).notNull().default("kandidat"),
+    reviewedAt: integer("reviewed_at", { mode: "timestamp_ms" }),
+    reviewedBy: integer("reviewed_by").references(() => users.id),
+    entryId: integer("entry_id").references(() => entries.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    check("github_changes_kind_check", oneOf(t.kind, GITHUB_CHANGE_KINDS)),
+    check("github_changes_state_check", oneOf(t.state, GITHUB_CHANGE_STATES)),
+    check("github_changes_bucket_check", oneOf(t.bucket, TRIAGE_BUCKETS)),
+    // Satu baris per PR dan per commit, walau webhook yang sama dikirim ulang.
+    uniqueIndex("github_changes_repo_pr_unq").on(t.repo, t.prNumber),
+    uniqueIndex("github_changes_repo_sha_unq").on(t.repo, t.commitSha),
+    index("github_changes_state_idx").on(t.state),
+  ],
+);
+
+// ID pengiriman webhook (header X-GitHub-Delivery) yang sudah diproses, supaya kiriman ulang
+// dari GitHub tidak diproses dua kali.
+export const webhookDeliveries = sqliteTable("webhook_deliveries", {
+  deliveryId: text("delivery_id").primaryKey(),
+  event: text("event").notNull(),
+  receivedAt: integer("received_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(nowMs),
+});
+
+// Usulan entri dari AI untuk satu PR (Langkah 6d). Satu PR bisa berisi beberapa fitur; setiap
+// usulan baru menjadi entri bila Admin memilihnya. Usulan sendiri tidak pernah terlihat pembaca.
+export const aiProposals = sqliteTable(
+  "ai_proposals",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    changeId: integer("change_id")
+      .notNull()
+      .references(() => githubChanges.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull().default(""),
+    problem: text("problem").notNull().default(""),
+    forWhom: text("for_whom").notNull().default(""),
+    explanation: text("explanation").notNull().default(""),
+    kind: text("kind", { enum: KINDS }).notNull().default("core"),
+    nature: text("nature", { enum: NATURES }).notNull().default("new"),
+    entryId: integer("entry_id").references(() => entries.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+  },
+  (t) => [
+    check("ai_proposals_kind_check", oneOf(t.kind, KINDS)),
+    check("ai_proposals_nature_check", oneOf(t.nature, NATURES)),
+    index("ai_proposals_change_id_idx").on(t.changeId),
+  ],
+);
+
+// Skenario screenshot otomatis per entri (Langkah 6e). Langkahnya teks sederhana satu perintah per
+// baris (lib/screenshot-scenario.ts), bukan kode, dan hanya dijalankan pada toko demo.
+export const screenshotScenarios = sqliteTable(
+  "screenshot_scenarios",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    entryId: integer("entry_id")
+      .notNull()
+      .unique()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    script: text("script").notNull().default(""),
+    lastRunAt: integer("last_run_at", { mode: "timestamp_ms" }),
+    lastStatus: text("last_status", { enum: SCENARIO_STATUSES }),
+    // Pesan galat singkat untuk Admin (tanpa nilai rahasia).
+    lastError: text("last_error"),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+  },
+  (t) => [check("screenshot_scenarios_status_check", sql`${t.lastStatus} is null or ${oneOf(t.lastStatus, SCENARIO_STATUSES)}`)],
 );

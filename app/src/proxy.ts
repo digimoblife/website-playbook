@@ -11,7 +11,8 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Semua halaman kecuali /masuk dan berkas statis.
+// Semua halaman kecuali /masuk, berkas statis, dan webhook GitHub (dipanggil GitHub tanpa cookie;
+// dilindungi tanda tangan HMAC di rutenya sendiri, lihat app/api/github/webhook/route.ts).
 export const config = {
-  matcher: ["/((?!masuk|_next/static|_next/image|icon\\.svg).*)"],
+  matcher: ["/((?!masuk|api/github/webhook|_next/static|_next/image|icon\\.svg).*)"],
 };

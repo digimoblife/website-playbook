@@ -10,7 +10,7 @@ Lapaq Playbook adalah website panduan produk yang membuat tim marketing internal
 
 Sumber acuan: `docs/blueprint.md`. Jika berbeda dengan dokumen Blueprint asli di Claude Docs, dokumen asli yang berlaku.
 
-Fase 1 sedang berjalan: Langkah 3d (FAQ dan tombol toko demo).
+Fase 1 sedang berjalan: Langkah 5 selesai (panduan skenario, gambar promosi, jadwal publish, Baru minggu ini, tampilan ponsel). Sisa Fase 1: deployment ke VPS (Langkah 4, diatur manual oleh Product Manager) dan uji penutupan. Fase 2 dimulai: Langkah 6a (Pengaturan), 6b (validasi Jenis, `audit/validasi-jenis.md`), 6c (webhook GitHub), dan 6d (triase dan pemecahan PR oleh AI), dan 6e (screenshot otomatis) selesai; sisa Fase 2 butuh VPS. Daftar lengkap: `docs/daftar-tugas.md`.
 
 ## Keputusan kunci (dari blueprint)
 
@@ -26,14 +26,17 @@ Fase 1 sedang berjalan: Langkah 3d (FAQ dan tombol toko demo).
 - **"Jangan dijanjikan"**: hanya tampil ke marketing internal, tidak ke partner.
 - **Ditunda ke fase 3**: chatbot Tanya Lapaq.
 - **Fase**: (1) kurasi manual, (2) otomasi, (3) kenyamanan. Otomasi baru ditambahkan setelah kurasi manual terbukti nyaman. Mockup beranda dan halaman fitur sudah dibuat sebagai prototipe klik dan disetujui Product Manager pada 21 September 2026.
-- **Sumber perubahan**: PR; commit langsung ke main masuk daftar "perlu ditinjau" di inbox.
+- **Sumber perubahan**: PR; commit langsung ke main masuk daftar "perlu ditinjau" di inbox. Tim Lapaq setuju memakai format commit dan mewajibkan PR untuk fitur.
+- **Tambah entri manual** ("Buat entri" di dashboard) wajib dipertahankan; otomasi GitHub tidak boleh menggantikan atau menghapusnya.
+- **Akses pembaca**: marketing internal dan partner sama-sama masuk dengan akun.
+- **Target**: marketing memahami satu fitur baru dalam 10 menit. Anggaran sekitar $20 per bulan (VPS dan Gemini).
 - **Penanda entri**: Jenis (Fitur inti atau Add-on) dan Sifat (Baru atau Pembaruan).
 - **Pengelompokan**: kunci "Fitur:" pada commit dan pencocokan ke peta fitur; Admin yang memutuskan.
 - **Changelog dan roadmap Lapaq**: Playbook berdiri sendiri dan tidak menautkan atau mengimpornya.
 - **Di luar cakupan**: platform mirip GitBook, bahasa selain Indonesia, publikasi tanpa persetujuan admin, dan perubahan apa pun pada kode atau infrastruktur Lapaq.
 
 ### Pertanyaan yang masih terbuka
-Angka dasar dan target waktu pemahaman marketing, estimasi biaya bulanan, apakah marketing internal masuk lewat akun, kesediaan tim Lapaq memakai format commit dan mewajibkan PR untuk fitur, dan validasi tebakan Jenis dari jalur file sebelum fase 2.
+Tidak ada. Tebakan Jenis divalidasi 28 September 2026: Jenis diambil dari peta fitur lewat trailer "Fitur:", dengan tebakan cadangan dari file layanan add-on dan nama add-on (lihat `audit/validasi-jenis.md`).
 
 ## Aturan kerja
 
@@ -52,13 +55,14 @@ lapaq-playbook/
 ├── CLAUDE.md
 ├── docs/     # blueprint dan dokumen perencanaan
 │             # docs/pedoman-commit-lapaq.md: pedoman commit yang diusulkan untuk tim Lapaq
-├── audit/    # hasil audit (mis. github-pr-audit.md)
+│             # docs/daftar-tugas.md: daftar tugas per fase
+├── audit/    # hasil audit (github-pr-audit.md, validasi-jenis.md)
 └── app/      # aplikasi Next.js (Fase 1 sedang dibangun)
 ```
 
 ## Tugas pertama: audit repositori GitHub Lapaq (selesai)
 
-Selesai; hasilnya di `audit/github-pr-audit.md`. Tugas berikutnya menunggu rencana fase 1 dari Product Manager. Tetap jangan menulis kode aplikasi sebelum diminta.
+Selesai; hasilnya di `audit/github-pr-audit.md`. Kode aplikasi Fase 1 sedang dibangun di `app/` sesuai langkah yang diminta Product Manager (lihat aturan kerja nomor 6).
 
 Repositori: `bajaklautmalaka/lapaq` (GitHub)
 Path lokal: `~/projects/lapaq` (hasil `gh repo clone`, di luar folder ini). Hanya baca dari clone itu; jangan commit atau push.

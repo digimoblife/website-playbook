@@ -156,3 +156,97 @@ export async function generateAiDraft(
 
   return { status: "ok", draft };
 }
+
+// ---------- Langkah 6d: pecah satu PR menjadi beberapa usulan entri ----------
+
+/** Batas usulan per PR. Audit menemukan PR berisi sampai lima butir fitur (PR #7). */
+export const MAX_PROPOSALS = 5;
+
+export type AiProposalsResult =
+  | { status: "unavailable"; message: string }
+  | { status: "error"; message: string }
+  | { status: "ok"; proposals: AiDraftFields[] };
+
+function buildProposalsPrompt(input: AiDraftInput): string {
+  return [
+    "Kamu membantu menulis draf entri panduan produk dalam BAHASA INDONESIA untuk tim marketing internal dan partner.",
+    "Satu PR bisa berisi beberapa fitur atau pembaruan yang berbeda. Pecah menjadi usulan entri: SATU usulan untuk SETIAP fitur atau pembaruan yang berbeda bagi pengguna toko.",
+    `Bila PR hanya berisi satu fitur, kembalikan satu usulan. Paling banyak ${MAX_PROPOSALS} usulan. Abaikan perubahan teknis yang tidak terlihat pengguna (tes, refactor, dependensi).`,
+    "Tulis HANYA berdasarkan judul, deskripsi, dan nama file yang diberikan. JANGAN mengarang detail, angka, atau klaim yang tidak ada di sumbernya.",
+    "",
+    `Judul PR: ${input.prTitle}`,
+    `Deskripsi PR: ${input.prBody || "(kosong)"}`,
+    `File yang berubah: ${input.files.length > 0 ? input.files.join(", ") : "(tidak diketahui)"}`,
+    "",
+    "Balas HANYA dengan JSON valid (tanpa markdown, tanpa teks lain) persis berbentuk:",
+    '{"proposals": [{"title": string, "summary": string, "problem": string, "forWhom": string, "explanation": string, "kind": "core" | "addon", "nature": "new" | "update"}]}',
+    `title maksimal ${LIMITS.title} karakter, summary maksimal ${LIMITS.summary} karakter, problem/forWhom/explanation maksimal ${LIMITS.longText} karakter.`,
+  ].join("\n");
+}
+
+/**
+ * Mem-parse daftar usulan. Menerima {"proposals": [...]}, larik langsung, atau satu objek (bila AI
+ * tetap membalas bentuk lama). Usulan yang tidak bisa dipakai dibuang; judul ganda digabung.
+ * null bila tidak ada satu pun usulan yang sah.
+ */
+export function parseProposals(raw: string): AiDraftFields[] | null {
+  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
+  let value: unknown;
+  try {
+    value = JSON.parse(cleaned);
+  } catch {
+    return null;
+  }
+  const list: unknown[] = Array.isArray(value)
+    ? value
+    : typeof value === "object" && value !== null && Array.isArray((value as { proposals?: unknown }).proposals)
+      ? (value as { proposals: unknown[] }).proposals
+      : [value];
+  const seen = new Set<string>();
+  const proposals: AiDraftFields[] = [];
+  for (const item of list) {
+    const draft = parseDraft(JSON.stringify(item));
+    if (!draft || seen.has(draft.title.toLowerCase())) continue;
+    seen.add(draft.title.toLowerCase());
+    proposals.push(draft);
+    if (proposals.length >= MAX_PROPOSALS) break;
+  }
+  return proposals.length > 0 ? proposals : null;
+}
+
+/** Seperti generateAiDraft, tetapi AI boleh memecah PR menjadi beberapa usulan (1 sampai 5). */
+export async function generateAiProposals(
+  input: AiDraftInput,
+  deps: { callApi?: typeof callAiApi } = {},
+): Promise<AiProposalsResult> {
+  const key = apiKey();
+  if (!key) {
+    return {
+      status: "unavailable",
+      message: "Draf AI belum aktif — atur AI_API_KEY di lingkungan server untuk mengaktifkan fitur ini.",
+    };
+  }
+  const model = modelName();
+  if (!model) {
+    return {
+      status: "unavailable",
+      message: "AI_API_KEY sudah diisi tetapi AI_MODEL belum. Isi nama model Gemini saat ini (cek ai.google.dev).",
+    };
+  }
+
+  const call = deps.callApi ?? callAiApi;
+  const prompt = buildProposalsPrompt(input);
+  let proposals: AiDraftFields[] | null = null;
+  for (const attempt of [prompt, `${prompt}\n\nKELUARAN SEBELUMNYA TIDAK VALID. Ulangi HANYA dengan JSON yang sah sesuai bentuk di atas.`]) {
+    let raw: string;
+    try {
+      raw = await call(attempt, key, model);
+    } catch {
+      return { status: "error", message: "Panggilan AI gagal (jaringan atau kuota). Usulan tidak dibuat." };
+    }
+    proposals = parseProposals(raw);
+    if (proposals) break;
+  }
+  if (!proposals) return { status: "error", message: "AI mengembalikan format yang tidak bisa dibaca. Usulan tidak dibuat." };
+  return { status: "ok", proposals };
+}

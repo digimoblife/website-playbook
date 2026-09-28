@@ -118,7 +118,16 @@ export function ImageManager({ entryId, images }: { entryId: number; images: Ima
               <span>
                 <strong>Gambar {index + 1}</strong>
                 <br />
-                <span className="muted">{MEDIA_KIND_LABEL[image.kind]}</span>
+                <span className="muted">
+                  {MEDIA_KIND_LABEL[image.kind]}
+                  {image.source === "auto" ? " (otomatis)" : ""}
+                </span>
+                {image.failed && (
+                  <>
+                    <br />
+                    <span className="badge badge-internal inline-error">Screenshot gagal diperbarui: tidak tampil ke pembaca</span>
+                  </>
+                )}
               </span>
               <InlineConfirm
                 label="Hapus"

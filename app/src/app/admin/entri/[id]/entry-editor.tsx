@@ -9,10 +9,13 @@ import {
   restoreEntryAction,
   saveEntryAction,
   unpublishEntryAction,
+  cancelScheduleAction,
+  scheduleEntryAction,
   type ActionResult,
 } from "@/app/admin/entri/actions";
 import { InlineConfirm } from "@/components/inline-confirm";
 import { StatusBadge } from "@/components/status-badge";
+import { TextField } from "@/components/text-field";
 import { readersWhoCanView } from "@/lib/access";
 import type { EditableEntry } from "@/lib/admin-entries";
 import {
@@ -92,65 +95,14 @@ function toPayload(form: FormState, imageIds: Set<number>) {
 
 type Notice = { ok: boolean; text: string } | null;
 
-function TextField({
-  id,
-  label,
-  value,
-  onChange,
-  max,
-  rows,
-  hint,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  max: number;
-  rows?: number;
-  hint?: string;
-}) {
-  const describedBy = hint ? `${id}-hint` : undefined;
-  return (
-    <div className="field">
-      <label htmlFor={id}>{label}</label>
-      {rows ? (
-        <textarea
-          id={id}
-          className="textarea"
-          rows={rows}
-          maxLength={max}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-describedby={describedBy}
-        />
-      ) : (
-        <input
-          id={id}
-          className="input"
-          maxLength={max}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-describedby={describedBy}
-        />
-      )}
-      {hint && (
-        <span id={`${id}-hint`} className="hint">
-          {hint}
-        </span>
-      )}
-      <span className="field-counter" aria-hidden="true">
-        {value.length}/{max}
-      </span>
-    </div>
-  );
-}
-
 export function EntryEditor({ entry }: { entry: EditableEntry }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(entry);
   const [form, setForm] = useState<FormState>(() => toForm(entry));
   const [notice, setNotice] = useState<Notice>(null);
+  // Nilai <input type="datetime-local">, dalam zona waktu perangkat Admin.
+  const [scheduleAt, setScheduleAt] = useState("");
 
   const imageIds = new Set(entry.images.map((image) => image.id));
   const archived = saved.archivedAt !== null;
@@ -196,6 +148,31 @@ export function EntryEditor({ entry }: { entry: EditableEntry }) {
       if (savedRes.entry) apply(savedRes.entry);
       const res = await publishEntryAction(undefined, idForm());
       if (res.ok && res.entry) apply(res.entry);
+      report(res, "Perubahan Anda sudah disimpan. ");
+      router.refresh();
+    });
+  }
+
+  function schedule() {
+    if (cannotPublish) return;
+    const when = new Date(scheduleAt);
+    if (!scheduleAt || Number.isNaN(when.getTime())) {
+      setNotice({ ok: false, text: "Pilih tanggal dan jam jadwal dulu." });
+      return;
+    }
+    startTransition(async () => {
+      // Sama seperti Publish: simpan dulu yang sedang diketik, lalu jadwalkan yang tersimpan.
+      const savedRes = await saveEntryAction(entry.id, toPayload(form, imageIds));
+      if (!savedRes.ok) {
+        report(savedRes);
+        return;
+      }
+      if (savedRes.entry) apply(savedRes.entry);
+      const res = await scheduleEntryAction(entry.id, when.toISOString());
+      if (res.ok && res.entry) {
+        apply(res.entry);
+        setScheduleAt("");
+      }
       report(res, "Perubahan Anda sudah disimpan. ");
       router.refresh();
     });
@@ -729,6 +706,52 @@ export function EntryEditor({ entry }: { entry: EditableEntry }) {
                     disabled={pending}
                     onConfirm={() => lifecycle(archiveEntryAction)}
                   />
+                </div>
+              )}
+              {!archived && !saved.isPublished && (
+                <div className="schedule-box">
+                  <h3>Jadwal publish</h3>
+                  {saved.scheduledPublishAt ? (
+                    <>
+                      <p role="status" style={{ margin: "0 0 0.5rem" }}>
+                        Terjadwal terbit <strong>{formatDateTime(saved.scheduledPublishAt)} WIB</strong>. Aturan
+                        publish diperiksa ulang saat waktunya tiba.
+                      </p>
+                      <InlineConfirm
+                        label="Batalkan jadwal"
+                        question="Batalkan jadwal publish?"
+                        confirmLabel="Ya, batalkan"
+                        disabled={pending}
+                        onConfirm={() => lifecycle(cancelScheduleAction)}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <div className="field">
+                        <label htmlFor="jadwal">Terbitkan pada</label>
+                        <input
+                          id="jadwal"
+                          type="datetime-local"
+                          className="input"
+                          value={scheduleAt}
+                          onChange={(e) => setScheduleAt(e.target.value)}
+                          aria-describedby="jadwal-hint"
+                          disabled={cannotPublish}
+                        />
+                        <span id="jadwal-hint" className="hint">
+                          Mengikuti jam perangkat Anda. Syaratnya sama dengan Publish.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={schedule}
+                        disabled={pending || cannotPublish || !scheduleAt}
+                      >
+                        Jadwalkan
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
               {cannotPublish && !archived && !saved.isPublished && (

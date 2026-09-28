@@ -122,7 +122,7 @@ describe("getEntryDetailBySlugFor: akses diterima", () => {
       .get();
     const gallery1 = db
       .insert(media)
-      .values({ entryId: id, kind: "promo", source: "manual", filePath: "galeri1.png" })
+      .values({ entryId: id, kind: "gif", source: "manual", filePath: "galeri1.gif" })
       .returning()
       .get();
     const gallery2 = db
@@ -170,6 +170,16 @@ describe("getEntryDetailBySlugFor: akses diterima", () => {
     const detail = getEntryDetailBySlugFor({ role: "marketing" }, "tanpa-langkah", db);
     expect(detail!.steps).toEqual([]);
     expect(detail!.images.map((i) => i.id).sort((x, y) => x - y)).toEqual([a.id, b.id].sort((x, y) => x - y));
+  });
+
+  it("gambar promosi dipisah dari galeri 'Cara kerja' dan masuk promoImages", () => {
+    const id = makeEntry("dengan-promo", { status: "siap", audience: "partner" });
+    const shot = db.insert(media).values({ entryId: id, kind: "screenshot", source: "manual", filePath: "s.png" }).returning().get();
+    const promo = db.insert(media).values({ entryId: id, kind: "promo", source: "manual", filePath: "p.png" }).returning().get();
+
+    const detail = getEntryDetailBySlugFor({ role: "partner" }, "dengan-promo", db);
+    expect(detail!.images.map((i) => i.id)).toEqual([shot.id]);
+    expect(detail!.promoImages).toEqual([{ id: promo.id, kind: "promo" }]);
   });
 
   it("entri tanpa gambar sama sekali: images kosong, bukan galat", () => {

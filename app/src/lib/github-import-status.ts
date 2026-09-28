@@ -1,9 +1,10 @@
 // Menggabungkan daftar PR dari GitHub dengan status "sudah/belum ditarik" (github_imports),
 // dipakai halaman /admin/github. Bukan sumber kebenaran baru: hanya menempel status baca-database
 // ke atas lib/github-api.ts (yang murni memanggil GitHub, tidak tahu apa-apa soal entri kita).
+import { eq } from "drizzle-orm";
 import { getDb, type AppDb } from "@/db/client";
 import { githubImports } from "@/db/schema";
-import { listPullRequests, type GithubResult, type PullRequestSummary } from "@/lib/github-api";
+import { listPullRequests, type GithubConfig, type GithubResult, type PullRequestSummary } from "@/lib/github-api";
 
 export type ImportRecord = { entryId: number; importedAt: Date };
 
@@ -13,14 +14,17 @@ export type PullRequestWithStatus = PullRequestSummary & {
 };
 
 export async function listPullRequestsWithStatus(
+  config: GithubConfig,
   db: AppDb = getDb(),
 ): Promise<GithubResult<PullRequestWithStatus[]>> {
-  const prsRes = await listPullRequests();
+  const prsRes = await listPullRequests(config);
   if (!prsRes.ok) return prsRes;
 
   const rows = db
     .select({ prNumber: githubImports.prNumber, entryId: githubImports.entryId, importedAt: githubImports.importedAt })
     .from(githubImports)
+    // Hanya tarikan dari repo yang sedang dipakai: PR #7 di repo lain adalah PR yang berbeda.
+    .where(eq(githubImports.repo, config.repo))
     .all();
 
   const byPrNumber = new Map<number, ImportRecord[]>();

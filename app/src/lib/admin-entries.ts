@@ -58,12 +58,22 @@ export type EntryInput = {
   faqs: FaqInput[];
 };
 
-export type ImageInfo = { id: number; kind: MediaKind; createdAt: Date };
+export type ImageInfo = {
+  id: number;
+  kind: MediaKind;
+  createdAt: Date;
+  /** "auto" untuk screenshot dari skenario (Langkah 6e). */
+  source: "auto" | "manual";
+  /** Screenshot gagal diperbarui: tidak tampil ke pembaca. */
+  failed: boolean;
+};
 
 export type EditableEntry = EntryInput & {
   id: number;
   isPublished: boolean;
   publishedAt: Date | null;
+  /** Jadwal publish yang sedang berlaku (lib/schedule.ts), atau null. */
+  scheduledPublishAt: Date | null;
   archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -212,7 +222,7 @@ export function loadEditable(db: DbLike, id: number): EditableEntry | null {
     .orderBy(asc(entrySteps.position))
     .all();
   const images = db
-    .select({ id: media.id, kind: media.kind, createdAt: media.createdAt })
+    .select({ id: media.id, kind: media.kind, createdAt: media.createdAt, source: media.source, failed: media.failed })
     .from(media)
     .where(eq(media.entryId, id))
     .orderBy(asc(media.id))
@@ -244,6 +254,7 @@ export function loadEditable(db: DbLike, id: number): EditableEntry | null {
     images,
     isPublished: row.isPublished,
     publishedAt: row.publishedAt,
+    scheduledPublishAt: row.scheduledPublishAt,
     archivedAt: row.archivedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -318,7 +329,7 @@ export type GithubPullDraft = {
   nature: unknown;
 };
 
-export type GithubPullInfo = { number: number; title: string; url: string };
+export type GithubPullInfo = { number: number; title: string; url: string; /** "pemilik/repo" asal PR. */ repo?: string };
 
 /**
  * Membuat entri baru dari draf AI hasil penarikan PR GitHub, dalam SATU transaksi bersama baris
@@ -372,6 +383,7 @@ export function pullFromGithub(
         prNumber: pr.number,
         prTitle: pr.title,
         prUrl: pr.url,
+        repo: pr.repo ?? null,
         entryId: row.id,
         actorId,
         importedAt: now,
@@ -540,8 +552,9 @@ export function publishEntry(id: number, actorId: number, db: AppDb = getDb()): 
     if (blocker) return fail(blocker);
 
     const now = new Date();
+    // Publish manual menggantikan jadwal yang mungkin masih berlaku.
     tx.update(entries)
-      .set({ isPublished: true, publishedAt: now, updatedAt: now })
+      .set({ isPublished: true, publishedAt: now, scheduledPublishAt: null, scheduledBy: null, updatedAt: now })
       .where(eq(entries.id, id))
       .run();
     logHistory(
@@ -586,8 +599,9 @@ export function archiveEntry(id: number, actorId: number, db: AppDb = getDb()): 
     if (current.archivedAt) return fail("Entri ini sudah diarsipkan.");
     const now = new Date();
     // Satu UPDATE: terarsip dan tidak terbit berubah bersamaan (pemicu database menjaganya).
+    // Jadwal publish ikut dibatalkan: entri terarsip tidak boleh terbit.
     tx.update(entries)
-      .set({ archivedAt: now, isPublished: false, updatedAt: now })
+      .set({ archivedAt: now, isPublished: false, scheduledPublishAt: null, scheduledBy: null, updatedAt: now })
       .where(eq(entries.id, id))
       .run();
     logHistory(
@@ -596,7 +610,9 @@ export function archiveEntry(id: number, actorId: number, db: AppDb = getDb()): 
       actorId,
       current.isPublished
         ? "Diarsipkan (sebelumnya terbit; otomatis ditarik dari pembaca)"
-        : "Diarsipkan",
+        : current.scheduledPublishAt
+          ? "Diarsipkan (jadwal publish ikut dibatalkan)"
+          : "Diarsipkan",
       now,
     );
     return {
@@ -710,12 +726,15 @@ export function listEntriesAdmin(
 
 export type InboxRow = AdminListRow & {
   stepCount: number;
+  scheduledPublishAt: Date | null;
   /** Apakah entri ini akan terlihat pembaca bila diterbitkan (status dan audiens bukan Internal). */
   willBeVisible: boolean;
   /** Bagian yang masih kurang; hanya berarti bila willBeVisible. */
   missing: string[];
   /** Tombol Publish hanya untuk entri yang akan terlihat pembaca DAN lengkap. */
   canPublishNow: boolean;
+  /** Dibuat dari PR atau commit GitHub (Tarik dari GitHub atau webhook). */
+  fromGithub: boolean;
 };
 
 /**
@@ -730,7 +749,12 @@ export function listInbox(db: AppDb = getDb()): InboxRow[] {
       summary: entries.summary,
       canPromise: entries.canPromise,
       cannotPromise: entries.cannotPromise,
-      stepCount: sql<number>`(select count(*) from ${entrySteps} where ${entrySteps.entryId} = ${entries.id})`,
+      scheduledPublishAt: entries.scheduledPublishAt,
+      sourcePrNumber: entries.sourcePrNumber,
+      // Nama tabel ditulis eksplisit: Drizzle merender ${kolom} tanpa nama tabel di dalam sql``,
+      // sehingga "id" akan merujuk ke tabel di subquery, bukan ke entries.
+      linkedChanges: sql<number>`(select count(*) from "github_changes" where "github_changes"."entry_id" = "entries"."id")`,
+      stepCount: sql<number>`(select count(*) from "entry_steps" where "entry_steps"."entry_id" = "entries"."id")`,
     })
     .from(entries)
     .where(isNull(entries.archivedAt))
@@ -738,7 +762,7 @@ export function listInbox(db: AppDb = getDb()): InboxRow[] {
     .all();
   return rows
     .filter((row) => !isVisibleToReaders(row))
-    .map(({ summary, canPromise, cannotPromise, stepCount, ...row }) => {
+    .map(({ summary, canPromise, cannotPromise, stepCount, sourcePrNumber, linkedChanges, ...row }) => {
       const willBeVisible = readersWhoCanView(row).length > 0;
       const missing = missingForPublish(
         { summary, canPromise, cannotPromise, status: row.status, audience: row.audience },
@@ -750,6 +774,7 @@ export function listInbox(db: AppDb = getDb()): InboxRow[] {
         willBeVisible,
         missing,
         canPublishNow: !row.isPublished && willBeVisible && missing.length === 0,
+        fromGithub: sourcePrNumber !== null || linkedChanges > 0,
       };
     });
 }

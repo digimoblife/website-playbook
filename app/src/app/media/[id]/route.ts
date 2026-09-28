@@ -16,7 +16,7 @@ function notFound(): Response {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id } = await context.params;
@@ -30,12 +30,16 @@ export async function GET(
   const bytes = await readStoredImage(found.name);
   if (!bytes) return notFound();
 
+  // ?unduh=1 (tombol "Unduh" di Materi siap pakai) meminta browser menyimpan berkas. Nama berkas
+  // dibuat dari id dan ekstensi tervalidasi, bukan dari nama asli unggahan.
+  const download = new URL(request.url).searchParams.get("unduh") === "1";
+  const ext = found.name.split(".").pop();
   return new Response(new Uint8Array(bytes), {
     headers: {
       "Content-Type": found.mime, // dari jenis yang sudah divalidasi saat unggah
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, no-cache",
-      "Content-Disposition": "inline",
+      "Content-Disposition": download ? `attachment; filename="gambar-${id}.${ext}"` : "inline",
       "Content-Security-Policy": "default-src 'none'; sandbox",
     },
   });

@@ -4,10 +4,20 @@ import { ActionForm } from "@/components/action-form";
 import { StatusBadge } from "@/components/status-badge";
 import { listInbox } from "@/lib/admin-entries";
 import { requireAdmin } from "@/lib/dal";
+import { runDueSchedules } from "@/lib/schedule";
 import { STATUSES } from "@/lib/domain";
 import { formatDateTime } from "@/lib/format";
 import { AUDIENCE_LABEL, KIND_LABEL, NATURE_LABEL, ROLE_LABEL } from "@/lib/labels";
 import { archiveEntryAction, publishEntryAction } from "./entri/actions";
+import { ChangeItem } from "./github/change-item";
+import {
+  countNewGithubChanges,
+  groupChanges,
+  isWaitingTooLong,
+  needsDraftReminder,
+  listNewGithubChanges,
+  WAITING_REMINDER_DAYS,
+} from "@/lib/github-changes";
 
 export const metadata: Metadata = { title: "Inbox" };
 
@@ -19,7 +29,13 @@ const STATUS_MEANING = {
 
 export default async function InboxPage() {
   const user = await requireAdmin();
+  runDueSchedules();
   const rows = listInbox();
+  const changes = listNewGithubChanges("kandidat");
+  const groups = groupChanges(changes);
+  const counts = countNewGithubChanges();
+  const staleDrafts = rows.filter(needsDraftReminder).length;
+  const staleChanges = changes.filter((change) => isWaitingTooLong(change.receivedAt)).length;
 
   return (
     <>
@@ -36,9 +52,57 @@ export default async function InboxPage() {
         </Link>
       </div>
 
+      {(staleDrafts > 0 || staleChanges > 0) && (
+        <div className="alert alert-danger notice" role="status">
+          <strong>Pengingat:</strong>{" "}
+          {[
+            staleDrafts > 0 && `${staleDrafts} draf belum disentuh lebih dari ${WAITING_REMINDER_DAYS} hari`,
+            staleChanges > 0 && `${staleChanges} perubahan dari GitHub menunggu lebih dari ${WAITING_REMINDER_DAYS} hari`,
+          ]
+            .filter(Boolean)
+            .join(", ")}
+          . Terbitkan, arsipkan, atau tandai ditinjau supaya Playbook tidak basi.
+        </div>
+      )}
+
+      {(changes.length > 0 || counts.perbaikan > 0 || counts.arsip > 0) && (
+        <section className="card" aria-labelledby="dari-github" style={{ marginBottom: "1.5rem" }}>
+          <h2 id="dari-github">Dari GitHub</h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Kandidat dari PR yang di-merge dan commit langsung (perlu ditinjau), dikelompokkan per fitur lewat kunci
+            &ldquo;Fitur:&rdquo;. Fitur inti dan add-on sama-sama masuk; Jenis hanya label. Tidak ada yang terbit
+            otomatis dan entri yang dibuat dari sini selalu Internal.
+          </p>
+          <nav className="chip-row" aria-label="Daftar lain dari GitHub">
+            <Link href="/admin/github/triase?daftar=perbaikan" className="chip">
+              Perbaikan ({counts.perbaikan})
+            </Link>
+            <Link href="/admin/github/triase?daftar=arsip" className="chip">
+              Arsip GitHub ({counts.arsip})
+            </Link>
+          </nav>
+          {groups.length === 0 ? (
+            <p className="muted">Tidak ada kandidat baru.</p>
+          ) : (
+            groups.map((group) => (
+              <div key={group.key}>
+                <h3>
+                  {group.label} ({group.changes.length})
+                </h3>
+                <ul className="entry-list">
+                  {group.changes.map((change) => (
+                    <ChangeItem key={change.id} change={change} />
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
+        </section>
+      )}
+
       {rows.length === 0 ? (
         <div className="card empty-state">
-          <p>Inbox kosong. Tidak ada entri yang menunggu keputusan.</p>
+          <p>Tidak ada entri draf yang menunggu keputusan.</p>
           <Link href="/admin/entri/baru" className="btn btn-primary">
             Buat entri baru
           </Link>
@@ -58,7 +122,15 @@ export default async function InboxPage() {
                   <span className="badge badge-internal">{NATURE_LABEL[row.nature]}</span>
                   <span className="muted">Audiens: {AUDIENCE_LABEL[row.audience]}</span>
                   <span className="muted">Diperbarui {formatDateTime(row.updatedAt)}</span>
+                  {needsDraftReminder(row) && (
+                    <span className="badge badge-beta">Menunggu lebih dari {WAITING_REMINDER_DAYS} hari</span>
+                  )}
                 </div>
+                {row.scheduledPublishAt && (
+                  <p className="note">
+                    <strong>Terjadwal terbit {formatDateTime(row.scheduledPublishAt)} WIB.</strong>
+                  </p>
+                )}
                 {row.isPublished ? (
                   <p className="note">
                     Sudah terbit, tetapi belum terlihat oleh pembaca karena status atau audiens masih Internal.

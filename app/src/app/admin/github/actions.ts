@@ -1,10 +1,23 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { generateAiDraft } from "@/lib/ai-draft";
+import { redirect } from "next/navigation";
+import { generateAiDraft, generateAiProposals } from "@/lib/ai-draft";
 import { pullFromGithub } from "@/lib/admin-entries";
 import { requireAdmin } from "@/lib/dal";
 import { getPullRequestDetail } from "@/lib/github-api";
+import { getGithubConfig } from "@/lib/settings";
+import {
+  applyTriageToNewEntry,
+  createEntryFromCommit,
+  createEntryFromProposal,
+  finishProposals,
+  saveProposals,
+  getEnrichedGithubChange,
+  getGithubChange,
+  markGithubChangeReviewed,
+  setGithubChangeBucket,
+} from "@/lib/github-changes";
 
 // requireAdmin() dipanggil PERTAMA, sebelum membaca input apa pun — pola sama seperti
 // src/app/admin/entri/actions.ts. Pengguna selain Admin dialihkan dan tidak ada yang berubah.
@@ -20,7 +33,10 @@ export async function pullFromGithubAction(prNumber: number): Promise<PullAction
     return { ok: false, error: "Nomor PR tidak valid." };
   }
 
-  const detail = await getPullRequestDetail(prNumber);
+  const config = getGithubConfig();
+  if (!config) return { ok: false, error: "Repo GitHub belum diatur. Isi dulu di menu Pengaturan." };
+
+  const detail = await getPullRequestDetail(config, prNumber);
   if (!detail.ok) return { ok: false, error: detail.error };
   const pr = detail.data;
 
@@ -28,10 +44,149 @@ export async function pullFromGithubAction(prNumber: number): Promise<PullAction
   if (draft.status !== "ok") return { ok: false, error: draft.message };
 
   // Draft tidak pernah punya field status/audience — pullFromGithub selalu memaksa Internal/Internal.
-  const result = pullFromGithub({ number: pr.number, title: pr.title, url: pr.url }, draft.draft, admin.id);
+  const result = pullFromGithub(
+    { number: pr.number, title: pr.title, url: pr.url, repo: config.repo },
+    draft.draft,
+    admin.id,
+  );
   if (!result.ok) return { ok: false, error: result.error };
 
   revalidatePath("/admin/github");
   revalidatePath("/admin/entri/[id]", "page");
   return { ok: true, entryId: result.id, slug: result.slug };
+}
+
+// ---------- Perubahan dari webhook (Langkah 6c), ditindaklanjuti dari Inbox ----------
+
+export type ChangeActionResult = { ok: true; message: string } | { ok: false; error: string };
+
+function parseId(formData: FormData): number | null {
+  const id = Number(formData.get("id"));
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function revalidateInbox(): void {
+  revalidatePath("/admin");
+  revalidatePath("/admin/entri");
+  revalidatePath("/admin/github/triase");
+}
+
+export async function markChangeReviewedAction(
+  _prev: ChangeActionResult | undefined,
+  formData: FormData,
+): Promise<ChangeActionResult> {
+  const admin = await requireAdmin();
+  const id = parseId(formData);
+  if (!id) return { ok: false, error: "Perubahan tidak valid." };
+  const result = markGithubChangeReviewed(id, admin.id);
+  if (!result.ok) return { ok: false, error: result.error };
+  revalidateInbox();
+  return { ok: true, message: "Ditandai sudah ditinjau." };
+}
+
+/** Commit langsung: buat entri draf (tanpa AI) berjudul pesan commit, lalu buka editornya. */
+export async function createEntryFromCommitAction(
+  _prev: ChangeActionResult | undefined,
+  formData: FormData,
+): Promise<ChangeActionResult> {
+  const admin = await requireAdmin();
+  const id = parseId(formData);
+  if (!id) return { ok: false, error: "Perubahan tidak valid." };
+  const result = createEntryFromCommit(id, admin.id);
+  if (!result.ok) return { ok: false, error: result.error };
+  revalidateInbox();
+  redirect(`/admin/entri/${result.entryId}`);
+}
+
+/** PR yang di-merge: buat draf AI (alur yang sama dengan "Tarik dari GitHub"), lalu buka editornya. */
+export async function draftFromPullRequestAction(
+  _prev: ChangeActionResult | undefined,
+  formData: FormData,
+): Promise<ChangeActionResult> {
+  const admin = await requireAdmin();
+  const id = parseId(formData);
+  if (!id) return { ok: false, error: "Perubahan tidak valid." };
+  const change = getGithubChange(id);
+  if (!change || change.kind !== "pr" || change.prNumber === null) return { ok: false, error: "PR tidak ditemukan." };
+  if (change.state === "ditinjau") return { ok: false, error: "Perubahan ini sudah ditinjau." };
+
+  const config = getGithubConfig();
+  if (!config) return { ok: false, error: "Repo GitHub belum diatur. Isi dulu di menu Pengaturan." };
+  if (config.repo.toLowerCase() !== change.repo.toLowerCase()) {
+    return { ok: false, error: `PR ini dari ${change.repo}, sedangkan Pengaturan memakai ${config.repo}.` };
+  }
+
+  const detail = await getPullRequestDetail(config, change.prNumber);
+  if (!detail.ok) return { ok: false, error: detail.error };
+  const pr = detail.data;
+  // AI hanya menerima judul, deskripsi, dan nama file PR; boleh memecahnya menjadi beberapa usulan.
+  const ai = await generateAiProposals({ prTitle: pr.title, prBody: pr.body, files: pr.files });
+  if (ai.status !== "ok") return { ok: false, error: ai.message };
+
+  if (ai.proposals.length > 1) {
+    // Lebih dari satu fitur: Admin memilih usulan mana yang dijadikan entri.
+    saveProposals(id, ai.proposals, pr.files);
+    revalidateInbox();
+    redirect(`/admin/github/usulan/${id}`);
+  }
+
+  // Satu usulan: langsung dijadikan entri. Selalu Internal/Internal dan belum terbit (pullFromGithub).
+  const result = pullFromGithub(
+    { number: pr.number, title: pr.title, url: pr.url, repo: config.repo },
+    ai.proposals[0],
+    admin.id,
+  );
+  if (!result.ok) return { ok: false, error: result.error };
+  // Slug dari kunci Fitur dan Jenis dari aturan triase (tercatat di riwayat sebagai tebakan).
+  const enriched = getEnrichedGithubChange(id);
+  if (enriched) applyTriageToNewEntry(result.id, enriched, admin.id);
+  markGithubChangeReviewed(id, admin.id, undefined, result.id);
+  revalidateInbox();
+  revalidatePath("/admin/github");
+  redirect(`/admin/entri/${result.id}`);
+}
+
+/** Admin memindahkan perubahan antar kelompok triase (kandidat, perbaikan, arsip). */
+export async function setChangeBucketAction(
+  _prev: ChangeActionResult | undefined,
+  formData: FormData,
+): Promise<ChangeActionResult> {
+  await requireAdmin();
+  const id = parseId(formData);
+  if (!id) return { ok: false, error: "Perubahan tidak valid." };
+  const bucket = formData.get("bucket");
+  const result = setGithubChangeBucket(id, bucket);
+  if (!result.ok) return { ok: false, error: result.error };
+  revalidateInbox();
+  return {
+    ok: true,
+    message: bucket === "kandidat" ? "Dipindahkan ke kandidat di Inbox." : bucket === "arsip" ? "Dipindahkan ke Arsip GitHub." : "Dipindahkan ke Perbaikan.",
+  };
+}
+
+export async function createEntryFromProposalAction(
+  _prev: ChangeActionResult | undefined,
+  formData: FormData,
+): Promise<ChangeActionResult> {
+  const admin = await requireAdmin();
+  const id = parseId(formData);
+  if (!id) return { ok: false, error: "Usulan tidak valid." };
+  const result = createEntryFromProposal(id, admin.id);
+  if (!result.ok) return { ok: false, error: result.error };
+  revalidatePath(`/admin/github/usulan/${result.changeId}`);
+  revalidateInbox();
+  return { ok: true, message: "Entri dibuat (Internal)." };
+}
+
+export async function finishProposalsAction(
+  _prev: ChangeActionResult | undefined,
+  formData: FormData,
+): Promise<ChangeActionResult> {
+  const admin = await requireAdmin();
+  const id = parseId(formData);
+  if (!id) return { ok: false, error: "Perubahan tidak valid." };
+  const result = finishProposals(id, admin.id);
+  if (!result.ok) return { ok: false, error: result.error };
+  revalidateInbox();
+  redirect("/admin");
 }
