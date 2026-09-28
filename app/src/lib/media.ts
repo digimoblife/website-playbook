@@ -11,10 +11,10 @@
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
-import { count, eq } from "drizzle-orm";
+import { and, count, eq, isNotNull } from "drizzle-orm";
 import { getDb, type AppDb } from "@/db/client";
 import { entries, media } from "@/db/schema";
-import { canView, type Viewer } from "@/lib/access";
+import { canView, isAdmin, type Viewer } from "@/lib/access";
 import { logHistory, type Result } from "@/lib/admin-entries";
 import { LIMITS, MEDIA_KINDS, type MediaKind } from "@/lib/domain";
 
@@ -201,12 +201,15 @@ export function getMediaForViewer(
       status: entries.status,
       audience: entries.audience,
       archivedAt: entries.archivedAt,
+      failed: media.failed,
     })
     .from(media)
     .innerJoin(entries, eq(entries.id, media.entryId))
     .where(eq(media.id, mediaId))
     .get();
   if (!row || !canView(viewer, row)) return null;
+  // Screenshot yang gagal diperbarui hanya untuk Admin (editor), tidak pernah untuk pembaca.
+  if (row.failed && !isAdmin(viewer)) return null;
   const mime = mimeForStoredName(row.filePath);
   if (!mime || !isStoredName(row.filePath)) return null;
   return { name: row.filePath, mime };
@@ -223,3 +226,76 @@ export async function readStoredImage(name: string, dir: string = mediaDir()): P
   }
 }
 
+
+// ---------- Screenshot otomatis (Langkah 6e) ----------
+
+/**
+ * Menyimpan hasil foto skenario sebagai media otomatis. Baris media untuk (entri, key) dipakai
+ * ulang: berkasnya diganti, tanda gagal dihapus. Hanya PNG yang diterima (dari Playwright).
+ */
+export async function saveAutoScreenshot(
+  input: { entryId: number; key: string; bytes: Uint8Array },
+  options: { dir?: string; db?: AppDb } = {},
+): Promise<{ id: number }> {
+  const dir = options.dir ?? mediaDir();
+  const db = options.db ?? getDb();
+  if (detectImageType(input.bytes) !== "png") throw new Error("Hasil screenshot bukan PNG.");
+  const name = `${randomBytes(16).toString("hex")}.png`;
+  const path = safePath(dir, name);
+  if (!path) throw new Error("Gagal menyimpan berkas.");
+  await mkdir(dir, { recursive: true });
+  await writeFile(path, input.bytes, { flag: "wx", mode: 0o600 });
+
+  const existing = db
+    .select({ id: media.id, filePath: media.filePath })
+    .from(media)
+    .where(and(eq(media.entryId, input.entryId), eq(media.autoKey, input.key)))
+    .get();
+  try {
+    if (existing) {
+      db.update(media).set({ filePath: name, failed: false }).where(eq(media.id, existing.id)).run();
+      const old = safePath(dir, existing.filePath);
+      if (old) await unlink(old).catch(() => {});
+      return { id: existing.id };
+    }
+    const row = db
+      .insert(media)
+      .values({ entryId: input.entryId, kind: "screenshot", source: "auto", filePath: name, autoKey: input.key })
+      .returning({ id: media.id })
+      .get();
+    return row;
+  } catch (error) {
+    await unlink(path).catch(() => {});
+    throw error;
+  }
+}
+
+/** Menandai semua screenshot otomatis entri ini "gagal diperbarui" (disembunyikan dari pembaca). */
+export function markAutoScreenshotsFailed(entryId: number, db: AppDb = getDb()): number {
+  return db
+    .update(media)
+    .set({ failed: true })
+    .where(and(eq(media.entryId, entryId), isNotNull(media.autoKey)))
+    .run().changes;
+}
+
+/** Menghapus screenshot otomatis yang tidak lagi ada di skenario (mis. jumlah foto berkurang). */
+export async function removeStaleAutoScreenshots(
+  entryId: number,
+  keepKeys: string[],
+  options: { dir?: string; db?: AppDb } = {},
+): Promise<void> {
+  const dir = options.dir ?? mediaDir();
+  const db = options.db ?? getDb();
+  const rows = db
+    .select({ id: media.id, filePath: media.filePath, autoKey: media.autoKey })
+    .from(media)
+    .where(and(eq(media.entryId, entryId), isNotNull(media.autoKey)))
+    .all()
+    .filter((row) => !keepKeys.includes(row.autoKey!));
+  for (const row of rows) {
+    db.delete(media).where(eq(media.id, row.id)).run();
+    const path = safePath(dir, row.filePath);
+    if (path) await unlink(path).catch(() => {});
+  }
+}

@@ -1,6 +1,6 @@
 // Uji rute media dan unggah. Yang dipalsukan hanya sumber cookie sesi dan koneksi database;
 // DAL (requireAdmin/getCurrentUser), getSessionUser, canView, dan lib/media berjalan sungguhan.
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,6 +29,7 @@ import { POST } from "@/app/admin/entri/[id]/unggah/route";
 const MB = 1024 * 1024;
 let db: AppDb;
 let dir: string;
+let root: string;
 let world: ReturnType<typeof makeWorld>;
 const entry: Record<"open" | "draft" | "mkt" | "internal" | "archived", number> = {} as never;
 const image: Record<keyof typeof entry, number> = {} as never;
@@ -38,7 +39,12 @@ beforeEach(async () => {
   db = makeTestDb();
   state.db = db;
   state.token = undefined;
-  dir = mkdtempSync(join(tmpdir(), "playbook-routes-"));
+  // Folder media berada tiga tingkat di dalam folder uji milik tes ini sendiri, supaya pemeriksaan
+  // path traversal tidak bergantung pada isi folder sementara sistem yang dipakai bersama tes lain
+  // (mis. profil Chromium dari tests/screenshot.test.ts yang berjalan paralel).
+  root = mkdtempSync(join(tmpdir(), "playbook-routes-"));
+  dir = join(root, "a", "b", "c", "media");
+  mkdirSync(dir, { recursive: true });
   process.env.MEDIA_DIR = dir;
   world = makeWorld(db);
 
@@ -75,7 +81,7 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(root, { recursive: true, force: true });
   delete process.env.MEDIA_DIR;
 });
 
@@ -273,14 +279,20 @@ describe("POST /admin/entri/[id]/unggah", () => {
 
   it("path traversal lewat nama berkas: nama dari klien diabaikan, berkas tetap di folder media dengan nama acak", async () => {
     state.token = world.tokens.admin;
-    const parent = join(dir, "..");
-    const parentBefore = readdirSync(parent).sort();
+    // Semua berkas di folder uji (rekursif) di luar folder media. Payload di bawah naik paling jauh
+    // tiga tingkat dari folder media, jadi tetap di dalam folder uji ini.
+    const outside = () =>
+      (readdirSync(root, { recursive: true }) as string[])
+        .map((p) => p.split("\\").join("/"))
+        .filter((p) => !p.startsWith("a/b/c/media/"))
+        .sort();
+    const before = outside();
     for (const evil of ["../../evil.png", "..\\..\\evil.png", "/etc/passwd", "a/../../../evil.png", "evil\0.png"]) {
       const res = await upload(entry.draft, { bytes: fakePng(), name: evil });
       expect(res.status, evil).toBe(200);
     }
-    expect(readdirSync(parent).sort()).toEqual(parentBefore); // tidak ada berkas baru di luar folder media
-    expect(existsSync(join(parent, "evil.png"))).toBe(false);
+    expect(outside()).toEqual(before); // tidak ada berkas baru di luar folder media
+    expect(outside().some((p) => p.endsWith("evil.png"))).toBe(false);
     for (const name of readdirSync(dir)) expect(isStoredName(name)).toBe(true);
   });
 

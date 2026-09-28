@@ -78,6 +78,13 @@
       "when": 1790579261193,
       "tag": "0010_langkah6d_usulan_ai",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1790579462776,
+      "tag": "0011_langkah6e_screenshot",
+      "breakpoints": true
     }
   ]
 }

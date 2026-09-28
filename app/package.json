@@ -15,15 +15,18 @@
     "db:seed": "tsx scripts/seed-admin.ts",
     "db:seed:peta": "tsx scripts/seed-peta.ts",
     "admin:reset": "tsx scripts/admin-reset.ts",
-    "jadwal:jalankan": "tsx scripts/publish-due.ts"
+    "jadwal:jalankan": "tsx scripts/publish-due.ts",
+    "screenshot:jalankan": "tsx --conditions=react-server scripts/screenshot.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.1",
     "better-sqlite3": "^13.0.3",
     "drizzle-orm": "^0.45.3",
     "next": "16.3.5",
+    "playwright-core": "1.56.1",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

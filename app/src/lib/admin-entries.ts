@@ -58,7 +58,15 @@ export type EntryInput = {
   faqs: FaqInput[];
 };
 
-export type ImageInfo = { id: number; kind: MediaKind; createdAt: Date };
+export type ImageInfo = {
+  id: number;
+  kind: MediaKind;
+  createdAt: Date;
+  /** "auto" untuk screenshot dari skenario (Langkah 6e). */
+  source: "auto" | "manual";
+  /** Screenshot gagal diperbarui: tidak tampil ke pembaca. */
+  failed: boolean;
+};
 
 export type EditableEntry = EntryInput & {
   id: number;
@@ -214,7 +222,7 @@ export function loadEditable(db: DbLike, id: number): EditableEntry | null {
     .orderBy(asc(entrySteps.position))
     .all();
   const images = db
-    .select({ id: media.id, kind: media.kind, createdAt: media.createdAt })
+    .select({ id: media.id, kind: media.kind, createdAt: media.createdAt, source: media.source, failed: media.failed })
     .from(media)
     .where(eq(media.entryId, id))
     .orderBy(asc(media.id))

@@ -93,9 +93,9 @@ Otomasi baru dimulai setelah kurasi manual Fase 1 terbukti nyaman. Tambah entri 
 - [x] Pengingat untuk draf dan perubahan yang menunggu lebih dari seminggu (Langkah 6d; hanya draf dari GitHub atau yang sudah diatur tampil)
 
 ### Screenshot otomatis
-- [ ] Tabel dan editor skenario screenshot per fitur
-- [ ] Playwright di VPS yang menjalankan skenario pada toko demo
-- [ ] Penanda "screenshot gagal diperbarui", tanpa menampilkan gambar lama diam-diam
+- [x] Tabel dan editor skenario screenshot per fitur (Langkah 6e)
+- [~] Playwright yang menjalankan skenario pada toko demo: selesai dan teruji dengan toko palsu (Langkah 6e); tinggal dipasang di VPS dengan `npx playwright install chromium` dan cron
+- [x] Penanda "screenshot gagal diperbarui", tanpa menampilkan gambar lama diam-diam (Langkah 6e)
 - [ ] Jaga isi toko demo tetap stabil
 
 ### Penutupan Fase 2

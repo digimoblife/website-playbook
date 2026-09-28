@@ -6,6 +6,7 @@
 //  2. Hasilnya disaring lagi dengan canView() dan dibersihkan dari cannotPromise
 //     bila perannya tidak berhak, sehingga kesalahan di satu lapis tidak membocorkan data.
 import { and, asc, desc, eq, inArray, isNull, ne, notInArray, sql, type SQL } from "drizzle-orm";
+// "Screenshot gagal diperbarui" (media.failed) tidak pernah ditampilkan ke pembaca; lihat di bawah.
 import { getDb, type AppDb } from "@/db/client";
 import { entries, entryFaqs, entrySteps, media } from "@/db/schema";
 import {
@@ -133,19 +134,31 @@ export function getEntryDetailBySlugFor(
   const entry = getEntryBySlugFor(viewer, slug, db);
   if (!entry) return null;
 
+  // Gambar yang gagal diperbarui disembunyikan dari langkahnya (teks langkah tetap tampil), sesuai
+  // blueprint: jangan menampilkan gambar lama diam-diam.
+  const failedIds = new Set(
+    db
+      .select({ id: media.id })
+      .from(media)
+      .where(and(eq(media.entryId, entry.id), eq(media.failed, true)))
+      .all()
+      .map((m) => m.id),
+  );
   const steps = db
     .select({ text: entrySteps.text, mediaId: entrySteps.mediaId })
     .from(entrySteps)
     .where(eq(entrySteps.entryId, entry.id))
     .orderBy(asc(entrySteps.position))
-    .all();
+    .all()
+    .map((step) => (step.mediaId !== null && failedIds.has(step.mediaId) ? { ...step, mediaId: null } : step));
 
   // Gambar milik entri ini yang belum ditautkan ke langkah mana pun. Karena media_id di
   // entry_steps hanya boleh menunjuk gambar milik entri yang sama (lib/admin-entries.ts),
   // "id-nya dipakai di entry_steps manapun" sama artinya dengan "dipakai di langkah entri ini".
-  const linkedMediaIds = steps
-    .map((s) => s.mediaId)
-    .filter((id): id is number => id !== null);
+  const linkedMediaIds = [
+    ...steps.map((s) => s.mediaId).filter((id): id is number => id !== null),
+    ...failedIds,
+  ];
   const unlinked = db
     .select({ id: media.id, kind: media.kind })
     .from(media)

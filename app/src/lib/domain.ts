@@ -32,6 +32,10 @@ export type GithubChangeState = (typeof GITHUB_CHANGE_STATES)[number];
 export const TRIAGE_BUCKETS = ["kandidat", "perbaikan", "arsip"] as const;
 export type TriageBucket = (typeof TRIAGE_BUCKETS)[number];
 
+// Hasil terakhir skenario screenshot otomatis (Langkah 6e).
+export const SCENARIO_STATUSES = ["berhasil", "gagal"] as const;
+export type ScenarioStatus = (typeof SCENARIO_STATUSES)[number];
+
 // Tag kebutuhan pelanggan: pilihan tetap. Yang disimpan di database adalah `key`.
 export const NEEDS_TAGS = [
   { key: "menarik-pembeli", label: "Menarik pembeli" },

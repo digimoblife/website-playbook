@@ -19,6 +19,7 @@ import {
   MEDIA_SOURCES,
   NATURES,
   ROLES,
+  SCENARIO_STATUSES,
   STATUSES,
 } from "../lib/domain";
 
@@ -142,7 +143,13 @@ export const media = sqliteTable(
     kind: text("kind", { enum: MEDIA_KINDS }).notNull(),
     source: text("source", { enum: MEDIA_SOURCES }).notNull(),
     filePath: text("file_path").notNull(),
+    // "Screenshot gagal diperbarui" (Langkah 6e): gambar otomatis yang skenarionya gagal. TIDAK
+    // ditampilkan ke pembaca (lib/entries.ts, lib/media.ts); Admin melihat tandanya di editor.
     failed: integer("failed", { mode: "boolean" }).notNull().default(false),
+    // Untuk screenshot otomatis: "foto-1", "foto-2", ... sesuai urutan perintah foto di skenario.
+    // Baris media yang sama dipakai ulang setiap kali skenario dijalankan, jadi tautan ke langkah
+    // "Cara pakai" tidak putus. Kosong untuk unggahan manual.
+    autoKey: text("auto_key"),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(nowMs),
@@ -151,6 +158,7 @@ export const media = sqliteTable(
     check("media_kind_check", oneOf(t.kind, MEDIA_KINDS)),
     check("media_source_check", oneOf(t.source, MEDIA_SOURCES)),
     index("media_entry_id_idx").on(t.entryId),
+    uniqueIndex("media_entry_auto_key_unq").on(t.entryId, t.autoKey),
   ],
 );
 
@@ -421,4 +429,26 @@ export const aiProposals = sqliteTable(
     check("ai_proposals_nature_check", oneOf(t.nature, NATURES)),
     index("ai_proposals_change_id_idx").on(t.changeId),
   ],
+);
+
+// Skenario screenshot otomatis per entri (Langkah 6e). Langkahnya teks sederhana satu perintah per
+// baris (lib/screenshot-scenario.ts), bukan kode, dan hanya dijalankan pada toko demo.
+export const screenshotScenarios = sqliteTable(
+  "screenshot_scenarios",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    entryId: integer("entry_id")
+      .notNull()
+      .unique()
+      .references(() => entries.id, { onDelete: "cascade" }),
+    script: text("script").notNull().default(""),
+    lastRunAt: integer("last_run_at", { mode: "timestamp_ms" }),
+    lastStatus: text("last_status", { enum: SCENARIO_STATUSES }),
+    // Pesan galat singkat untuk Admin (tanpa nilai rahasia).
+    lastError: text("last_error"),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+  },
+  (t) => [check("screenshot_scenarios_status_check", sql`${t.lastStatus} is null or ${oneOf(t.lastStatus, SCENARIO_STATUSES)}`)],
 );
