@@ -141,11 +141,12 @@ Satu commit tidak sama dengan satu fitur selesai, jadi sistem tidak menebak kapa
 | Perubahan hanya menyentuh CSS atau teks tampilan | Arsip |
 | Tipe commit fix | Daftar perbaikan terpisah yang jarang ditinjau |
 | File page.tsx atau route.ts baru, atau tabel dan kolom baru | Kandidat fitur baru |
-| Perubahan di src/services/add-ons atau komponen add-on | Kandidat add-on |
+| Menyentuh file layanan add-on tertentu, atau judul menyebut nama add-on dari peta fitur (divalidasi 28 September 2026, lihat audit/validasi-jenis.md) | Kandidat add-on |
+| Hanya menyentuh sistem add-on (hak akses, definisi, penagihan, versi, halaman katalog add-on) | Fitur inti (Katalog dan pembelian add-on) |
 
 **Pencocokan ke peta fitur.** Peta fitur awal dibuat sekali dari struktur route dan modul Lapaq. Perubahan yang cocok dengan entri yang ada menjadi Pembaruan entri itu, sedangkan yang tidak cocok menjadi Kandidat fitur baru. Satu fitur yang dikerjakan lewat banyak commit tetap menjadi satu kandidat yang bertambah isinya, dan tidak tampil ke pembaca sebelum Admin menandainya selesai.
 
-**Penanda entri.** Setiap entri punya Jenis (Fitur inti atau Add-on) dan Sifat (Baru atau Pembaruan). AI mengusulkannya dari jalur file, lalu Admin mengonfirmasi di editor.
+**Penanda entri.** Setiap entri punya Jenis (Fitur inti atau Add-on) dan Sifat (Baru atau Pembaruan). Jenis diambil dari entri peta fitur yang cocok lewat trailer "Fitur:"; tanpa trailer, sistem menebak dari file layanan add-on dan nama add-on di judul, lalu Admin mengonfirmasi di editor. Aturan lama "semua jalur add-on" hanya benar sekitar 20 persen dan ditinggalkan (audit/validasi-jenis.md).
 
 **Pengelompokan lewat commit.** Kunci utamanya adalah trailer "Fitur: slug-fitur" pada commit bertipe feat. Commit tanpa kunci dikelompokkan berdasarkan usulan AI dan dikoreksi Admin. Tebakan Jenis dari jalur file belum teruji dan harus divalidasi di repositori sebelum fase 2.
 
@@ -290,7 +291,7 @@ Audit hanya-baca terhadap repositori bajaklautmalaka/lapaq (21 September 2026) m
 
 ## Pertanyaan terbuka
 
-Dua belas pertanyaan sudah terjawab, dan satu masih terbuka.
+Semua pertanyaan sudah terjawab.
 
 - [x] Apakah tim developer Lapaq memakai label PR atau feature flag, dan seberapa rapi penamaan PR-nya? Tidak ada label maupun sistem feature flag, dan penamaan campur (audit 21 September 2026)
 - [x] Apakah delapan rekomendasi pada bagian Keputusan disetujui? Ya, dengan penyesuaian: peran Editor tidak dibuat
@@ -304,4 +305,4 @@ Dua belas pertanyaan sudah terjawab, dan satu masih terbuka.
 - [x] Berapa perkiraan biaya bulanan untuk hosting, database, dan pemakaian AI? Sekitar $20 per bulan untuk VPS dan Gemini (26 September 2026)
 - [x] Apakah tim marketing internal juga masuk lewat akun, atau cukup dengan cara lain? Ya, lewat akun (26 September 2026)
 - [x] Apakah tim developer Lapaq bersedia memakai format commit yang diusulkan dan mewajibkan PR untuk fitur? Ya, dengan syarat fitur tambah entri manual tetap dipertahankan (26 September 2026)
-- [ ] Apakah tebakan Jenis (fitur inti atau add-on) dari jalur file akurat? Perlu divalidasi di repositori sebelum fase 2
+- [x] Apakah tebakan Jenis (fitur inti atau add-on) dari jalur file akurat? Tidak dengan aturan lama (sekitar 4 dari 21 benar). Jenis diambil dari peta fitur lewat trailer "Fitur:", dengan tebakan cadangan yang lebih sempit (audit/validasi-jenis.md, 28 September 2026)

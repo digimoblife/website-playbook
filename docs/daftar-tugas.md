@@ -63,9 +63,10 @@ Per 26 September 2026, diperbarui setelah Langkah 5. Disusun dari `docs/blueprin
 Otomasi baru dimulai setelah kurasi manual Fase 1 terbukti nyaman. Tambah entri manual tetap ada.
 
 ### Persiapan
-- [ ] Validasi tebakan Jenis (fitur inti atau add-on) dari jalur file di repositori Lapaq (pertanyaan terbuka terakhir)
+- [x] Validasi tebakan Jenis dari jalur file (Langkah 6b, `audit/validasi-jenis.md`): aturan lama hanya sekitar 20 persen benar; Jenis diambil dari peta fitur lewat trailer "Fitur:"
 - [x] Pedoman commit untuk tim Lapaq (`docs/pedoman-commit-lapaq.md`); tim sudah setuju
-- [ ] Pastikan tim Lapaq sudah memakai format commit dan PR untuk fitur
+- [ ] Pastikan tim Lapaq sudah memakai format commit dan PR untuk fitur (per 28 September 2026: 0 trailer "Fitur:", 91 dari 157 commit tanpa tipe)
+- [ ] Ulangi validasi Jenis setelah format commit dipakai sekitar satu bulan
 
 ### Halaman Pengaturan (keputusan 26 September 2026)
 - [x] Menu Pengaturan di dashboard (hanya Admin), setiap perubahan tercatat di riwayat tanpa nilai rahasia (Langkah 6a)

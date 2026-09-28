@@ -10,7 +10,7 @@ Lapaq Playbook adalah website panduan produk yang membuat tim marketing internal
 
 Sumber acuan: `docs/blueprint.md`. Jika berbeda dengan dokumen Blueprint asli di Claude Docs, dokumen asli yang berlaku.
 
-Fase 1 sedang berjalan: Langkah 5 selesai (panduan skenario, gambar promosi, jadwal publish, Baru minggu ini, tampilan ponsel). Sisa Fase 1: deployment ke VPS (Langkah 4, diatur manual oleh Product Manager) dan uji penutupan. Fase 2 dimulai: Langkah 6a (Pengaturan) dan 6c (webhook GitHub) selesai; 6b menunggu akses baca ke repo Lapaq di sesi Claude. Daftar lengkap: `docs/daftar-tugas.md`.
+Fase 1 sedang berjalan: Langkah 5 selesai (panduan skenario, gambar promosi, jadwal publish, Baru minggu ini, tampilan ponsel). Sisa Fase 1: deployment ke VPS (Langkah 4, diatur manual oleh Product Manager) dan uji penutupan. Fase 2 dimulai: Langkah 6a (Pengaturan), 6b (validasi Jenis, `audit/validasi-jenis.md`), dan 6c (webhook GitHub) selesai. Daftar lengkap: `docs/daftar-tugas.md`.
 
 ## Keputusan kunci (dari blueprint)
 
@@ -36,7 +36,7 @@ Fase 1 sedang berjalan: Langkah 5 selesai (panduan skenario, gambar promosi, jad
 - **Di luar cakupan**: platform mirip GitBook, bahasa selain Indonesia, publikasi tanpa persetujuan admin, dan perubahan apa pun pada kode atau infrastruktur Lapaq.
 
 ### Pertanyaan yang masih terbuka
-Validasi tebakan Jenis dari jalur file sebelum fase 2. Pertanyaan lain sudah dijawab Product Manager pada 26 September 2026 (lihat blueprint).
+Tidak ada. Tebakan Jenis divalidasi 28 September 2026: Jenis diambil dari peta fitur lewat trailer "Fitur:", dengan tebakan cadangan dari file layanan add-on dan nama add-on (lihat `audit/validasi-jenis.md`).
 
 ## Aturan kerja
 
@@ -56,7 +56,7 @@ lapaq-playbook/
 ├── docs/     # blueprint dan dokumen perencanaan
 │             # docs/pedoman-commit-lapaq.md: pedoman commit yang diusulkan untuk tim Lapaq
 │             # docs/daftar-tugas.md: daftar tugas per fase
-├── audit/    # hasil audit (mis. github-pr-audit.md)
+├── audit/    # hasil audit (github-pr-audit.md, validasi-jenis.md)
 └── app/      # aplikasi Next.js (Fase 1 sedang dibangun)
 ```
 
