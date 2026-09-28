@@ -11,6 +11,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getDb, type AppDb } from "@/db/client";
 import { githubChanges, webhookDeliveries } from "@/db/schema";
+import { triageBucket } from "@/lib/triage";
 
 /** Batas ukuran kiriman yang diterima. GitHub memotong kiriman di 25 MB; push biasa jauh lebih kecil. */
 export const MAX_WEBHOOK_BYTES = 5 * 1024 * 1024;
@@ -137,6 +138,7 @@ export function handleWebhook(
           kind: "pr",
           prNumber: pr.number as number,
           title: str(pr.title, MAX_TITLE) || `PR #${pr.number}`,
+          bucket: triageBucket(str(pr.title, MAX_TITLE)),
           body: str(pr.body, MAX_BODY),
           url: str(pr.html_url, 500),
           happenedAt: date(pr.merged_at) ?? now,
@@ -172,6 +174,7 @@ export function handleWebhook(
             kind: "commit",
             commitSha: sha,
             title: firstLine.trim().slice(0, MAX_TITLE) || sha.slice(0, 7),
+            bucket: triageBucket(firstLine),
             body: rest.join("\n").trim().slice(0, MAX_BODY),
             url: str(commit.url, 500),
             files: JSON.stringify(fileList(commit)),

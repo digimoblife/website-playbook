@@ -14,6 +14,7 @@ import {
   GITHUB_CHANGE_KINDS,
   GITHUB_CHANGE_STATES,
   KINDS,
+  TRIAGE_BUCKETS,
   MEDIA_KINDS,
   MEDIA_SOURCES,
   NATURES,
@@ -366,6 +367,8 @@ export const githubChanges = sqliteTable(
       .notNull()
       .default(nowMs),
     state: text("state", { enum: GITHUB_CHANGE_STATES }).notNull().default("baru"),
+    // Hasil triase otomatis saat diterima (Langkah 6d, lib/triage.ts). Admin bisa mengubahnya.
+    bucket: text("bucket", { enum: TRIAGE_BUCKETS }).notNull().default("kandidat"),
     reviewedAt: integer("reviewed_at", { mode: "timestamp_ms" }),
     reviewedBy: integer("reviewed_by").references(() => users.id),
     entryId: integer("entry_id").references(() => entries.id, { onDelete: "set null" }),
@@ -373,6 +376,7 @@ export const githubChanges = sqliteTable(
   (t) => [
     check("github_changes_kind_check", oneOf(t.kind, GITHUB_CHANGE_KINDS)),
     check("github_changes_state_check", oneOf(t.state, GITHUB_CHANGE_STATES)),
+    check("github_changes_bucket_check", oneOf(t.bucket, TRIAGE_BUCKETS)),
     // Satu baris per PR dan per commit, walau webhook yang sama dikirim ulang.
     uniqueIndex("github_changes_repo_pr_unq").on(t.repo, t.prNumber),
     uniqueIndex("github_changes_repo_sha_unq").on(t.repo, t.commitSha),

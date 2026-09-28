@@ -77,7 +77,7 @@ Karena tim Lapaq sudah setuju memakai format commit, angka ini diperkirakan memb
    - Add-on bila menyentuh salah satu file layanan add-on yang spesifik, **atau** judul commit atau PR menyebut nama add-on dari peta fitur.
    - Daftar file dan nama add-on diambil dari entri berjenis Add-on di peta fitur, bukan ditulis mati di kode, supaya add-on baru ikut terhitung.
    - Perubahan hanya di file sistem add-on (`access`, `definitions`, `billing`, `entitlements`, `releases`, halaman `admin/add-ons`) ditebak sebagai **Fitur inti** (Katalog dan pembelian add-on).
-   - Perubahan hanya di `superadmin/add-ons` ditebak sebagai **internal**, dan tidak menjadi kandidat untuk marketing.
+   - Perubahan hanya di `superadmin/add-ons` ditebak sebagai **Fitur inti** dengan keterangan "area superadmin (internal Lapaq)". Tetap masuk Inbox sebagai kandidat; Admin yang memutuskan apakah perlu entri Playbook.
 3. **Perubahan pada `src/services/add-ons/definitions.ts` diberi tanda "mungkin ada add-on baru, periksa"**, karena add-on baru didaftarkan di sana. Webhook hanya menerima nama file, bukan isinya, jadi ini hanya bisa berupa tanda untuk Admin.
 4. **Tebakan selalu ditampilkan sebagai tebakan** dan dikonfirmasi Admin di editor, sesuai blueprint.
 5. **Ulangi validasi ini** setelah format commit dipakai sekitar satu bulan, dengan data PR (judul dan deskripsi) bila akses API GitHub tersedia.

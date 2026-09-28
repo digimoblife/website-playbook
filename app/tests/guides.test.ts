@@ -12,6 +12,7 @@ import {
   getEditableGuide,
   getGuideDetailBySlugFor,
   guideLinkWarnings,
+  listGuidesAdmin,
   listGuidesFor,
   listLinkableEntries,
   parseGuideInput,
@@ -230,5 +231,22 @@ describe("Akses pembaca ke panduan", () => {
     expect(warnings).toEqual([expect.stringMatching(/^Langkah 2: .*Partner/)]);
     // Panduan Internal tidak punya pembaca, jadi tidak ada peringatan.
     expect(guideLinkWarnings({ status: "internal", audience: "partner", steps: [{ text: "b", entryId: forMarketingOnly }] }, linkable)).toEqual([]);
+  });
+});
+
+describe("Regresi: jumlah langkah di daftar panduan admin", () => {
+  it("dihitung per panduan, bukan dari id langkah", () => {
+    newGuide("Kosong Satu");
+    newGuide("Kosong Dua");
+    const id = newGuide("Tiga Langkah");
+    saveGuide(
+      id,
+      validGuideInput({ slug: "tiga-langkah", steps: [1, 2, 3].map((n) => ({ text: `L${n}`, entryId: null })) }),
+      adminId,
+      db,
+    );
+    const rows = new Map(listGuidesAdmin(db).map((r) => [r.slug, r.stepCount]));
+    expect(rows.get("tiga-langkah")).toBe(3);
+    expect(rows.get("kosong-satu")).toBe(0);
   });
 });

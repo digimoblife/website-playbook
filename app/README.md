@@ -2,7 +2,7 @@
 
 Website panduan produk Lapaq untuk tim marketing internal dan partner JV, dengan dashboard admin untuk Product Manager. Rancangan lengkap ada di `../docs/blueprint.md`.
 
-**Status: Fase 1, Langkah 5 selesai; Fase 2, Langkah 6a (Pengaturan) dan 6c (webhook GitHub) selesai.** Sudah ada: database, login dan peran, aturan akses konten, dashboard admin lengkap (termasuk jadwal publish), website untuk pembaca (Beranda dengan "Baru minggu ini", Apa yang baru, Katalog dengan filter tag, halaman fitur dengan FAQ, gambar promosi yang bisa diunduh, dan tombol "Coba di toko demo", Panduan skenario, umpan balik "Apakah halaman ini membantu?", pratinjau "Lihat sebagai" untuk Admin), serta percobaan "Tarik dari GitHub" dengan draf AI (Langkah 4-experimental, penarikan manual per PR). Menu **Pengaturan** mengatur nama produk, repo GitHub, token GitHub, dan toko demo. Webhook GitHub mencatat PR yang di-merge dan commit langsung ke branch utama ke bagian "Dari GitHub" di Inbox. Belum ada: deployment (Langkah 4), triase otomatis, dan screenshot otomatis (Fase 2).
+**Status: Fase 1, Langkah 5 selesai; Fase 2, Langkah 6a (Pengaturan), 6c (webhook GitHub), dan 6d (triase) selesai.** Sudah ada: database, login dan peran, aturan akses konten, dashboard admin lengkap (termasuk jadwal publish), website untuk pembaca (Beranda dengan "Baru minggu ini", Apa yang baru, Katalog dengan filter tag, halaman fitur dengan FAQ, gambar promosi yang bisa diunduh, dan tombol "Coba di toko demo", Panduan skenario, umpan balik "Apakah halaman ini membantu?", pratinjau "Lihat sebagai" untuk Admin), serta percobaan "Tarik dari GitHub" dengan draf AI (Langkah 4-experimental, penarikan manual per PR). Menu **Pengaturan** mengatur nama produk, repo GitHub, token GitHub, dan toko demo. Webhook GitHub mencatat PR yang di-merge dan commit langsung ke branch utama ke bagian "Dari GitHub" di Inbox. Perubahan itu ditriase otomatis dan dikelompokkan per fitur. Belum ada: deployment (Langkah 4), pemecahan satu PR menjadi beberapa usulan entri oleh AI, dan screenshot otomatis (Fase 2).
 
 Teknologi: Next.js 16 (App Router, TypeScript), SQLite lewat Drizzle ORM, argon2id untuk kata sandi, Vitest untuk tes.
 
@@ -32,7 +32,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-Sudah punya database dari langkah sebelumnya? Cukup jalankan `npm run db:migrate`. Setiap migrasi (Langkah 2: dua kolom dan dua pemicu; Langkah 3: indeks unik pada umpan balik halaman; Langkah 3d: tabel `entry_faqs`; Langkah 4-experimental: tabel `github_imports`; Langkah 5: tabel `guides`, `guide_steps`, `guide_history` dan kolom jadwal publish pada `entries`; Langkah 6a: tabel `app_settings`, `settings_history`, dan kolom `repo` pada `github_imports`; Langkah 6c: tabel `github_changes` dan `webhook_deliveries`) bersifat aditif dan tidak menghapus atau mengubah data yang ada.
+Sudah punya database dari langkah sebelumnya? Cukup jalankan `npm run db:migrate`. Setiap migrasi (Langkah 2: dua kolom dan dua pemicu; Langkah 3: indeks unik pada umpan balik halaman; Langkah 3d: tabel `entry_faqs`; Langkah 4-experimental: tabel `github_imports`; Langkah 5: tabel `guides`, `guide_steps`, `guide_history` dan kolom jadwal publish pada `entries`; Langkah 6a: tabel `app_settings`, `settings_history`, dan kolom `repo` pada `github_imports`; Langkah 6c: tabel `github_changes` dan `webhook_deliveries`; Langkah 6d: kolom `bucket` pada `github_changes`, lewat pembuatan ulang tabel yang menyalin semua baris) bersifat aditif dan tidak menghapus atau mengubah data yang ada.
 
 Setelah seed berhasil, **hapus `ADMIN_PASSWORD` dari `.env.local`**. Seed aman dijalankan ulang: akun yang sudah ada tidak diubah, dan kata sandi tidak pernah dicetak.
 
@@ -93,6 +93,28 @@ Memasang webhook (dilakukan pemilik repo, karena Playbook tidak pernah mengubah 
 4. **Which events**: pilih "Let me select individual events", centang **Pull requests** dan **Pushes** saja.
 5. Simpan. GitHub mengirim `ping`; di tab **Recent Deliveries** jawabannya harus `200 pong`.
 
+## Triase perubahan dari GitHub
+
+Setiap perubahan yang masuk lewat webhook ditriase dari judulnya (`src/lib/triage.ts`):
+
+| Tipe di judul (Conventional Commits) | Masuk ke |
+| --- | --- |
+| `docs`, `test`, `chore`, `style`, `copy` | **Arsip GitHub** |
+| `fix` | **Perbaikan** (jarang ditinjau) |
+| lainnya: `feat`, `refactor`, atau tanpa tipe | **Kandidat** di Inbox |
+
+Fitur inti dan add-on sama-sama menjadi kandidat; Jenis hanya label. Admin bisa memindahkan perubahan antar kelompok kapan saja (tombol "Jadikan kandidat", "Ke Perbaikan", "Ke Arsip"), jadi tidak ada yang hilang.
+
+Kandidat di Inbox dikelompokkan per fitur lewat trailer `Fitur: slug` di pesan commit atau deskripsi PR:
+
+- **Pembaruan: {entri}**: kunci cocok dengan slug entri yang ada. Jenisnya diambil dari entri itu, dan "Tandai ditinjau" menautkan perubahan ke entri tersebut.
+- **Kandidat fitur baru: {slug}**: kunci belum punya entri. "Buat entri" atau "Buat draf AI" membuat entri dengan slug itu, sehingga perubahan berikutnya dengan kunci yang sama otomatis menjadi Pembaruan.
+- **Belum berkunci Fitur**: tanpa trailer.
+
+Tanpa kunci yang cocok, Jenis **ditebak** (label "Tebakan") sesuai `audit/validasi-jenis.md`: Add-on bila menyentuh file layanan add-on tertentu atau judulnya menyebut nama entri add-on; perubahan yang hanya menyentuh sistem add-on atau superadmin ditebak Fitur inti. Pencocokan nama hanya mengenali nama entri persis (mis. "Kunci stok"), bukan terjemahannya; kunci `Fitur:` tetap cara yang andal. Tebakan dicatat di riwayat entri dan dikonfirmasi Admin di editor.
+
+**Pengingat:** Inbox menampilkan pengingat untuk perubahan GitHub yang menunggu lebih dari 7 hari, dan untuk draf yang belum disentuh lebih dari 7 hari **bila** draf itu berasal dari GitHub atau sudah diatur tampil ke pembaca. Draf peta fitur yang masih Internal sengaja tidak diingatkan.
+
 ## Memasang lebih dari satu produk di satu VPS
 
 Satu instalasi untuk satu produk. Untuk produk lain, jalankan kode yang sama sekali lagi dengan berkas lingkungan, database, folder gambar, port, dan domain sendiri. Semua pengaturan dibaca saat berjalan, jadi satu kali `npm run build` cukup untuk semua instalasi.
@@ -141,7 +163,7 @@ npm run typecheck   # pemeriksaan tipe TypeScript
 npm run lint        # ESLint
 ```
 
-Semua tes memakai database SQLite di memori dan folder sementara; database dan gambar Anda tidak tersentuh. Yang terpenting: `access.test.ts` dan `entries-access.test.ts` (matriks 3 peran × 3 status × 3 audiens × terbit/draf, dan Partner tidak pernah menerima `cannot_promise`), `actions.test.ts` (setiap Server Action menolak selain Admin dan database tetap utuh), `routes.test.ts` dan `media.test.ts` (akses, unggah, dan path traversal gambar), `admin-entries.test.ts` (aturan publish, arsip, pemicu database, dan validasi/penyimpanan FAQ), `entries-detail.test.ts` (langkah, galeri, dan FAQ hanya untuk yang berhak — FAQ sendiri tidak dibatasi peran), `preview.test.ts` (cookie pratinjau diabaikan untuk akun bukan Admin), `feedback.test.ts` (upsert umpan balik, Admin ditolak), `demo-store.test.ts` (validasi URL toko demo), `guides.test.ts` (aturan publish panduan, matriks akses, dan tautan fitur yang tidak boleh bocor), `schedule.test.ts` (jadwal publish, termasuk pembatalan otomatis bila aturan tidak lagi terpenuhi), `settings.test.ts` (validasi repo dan token, enkripsi, riwayat tanpa nilai rahasia, dan cadangan ke variabel lingkungan), `github-webhook.test.ts` (tanda tangan, repo lain, kiriman ulang, PR yang di-merge, dan commit langsung), dan `website-pages.test.ts` (halaman website benar-benar dirender ke HTML dan diperiksa, bukan hanya datanya — termasuk FAQ, tombol "Coba di toko demo", gambar promosi, Panduan skenario, dan "Baru minggu ini").
+Semua tes memakai database SQLite di memori dan folder sementara; database dan gambar Anda tidak tersentuh. Yang terpenting: `access.test.ts` dan `entries-access.test.ts` (matriks 3 peran × 3 status × 3 audiens × terbit/draf, dan Partner tidak pernah menerima `cannot_promise`), `actions.test.ts` (setiap Server Action menolak selain Admin dan database tetap utuh), `routes.test.ts` dan `media.test.ts` (akses, unggah, dan path traversal gambar), `admin-entries.test.ts` (aturan publish, arsip, pemicu database, dan validasi/penyimpanan FAQ), `entries-detail.test.ts` (langkah, galeri, dan FAQ hanya untuk yang berhak — FAQ sendiri tidak dibatasi peran), `preview.test.ts` (cookie pratinjau diabaikan untuk akun bukan Admin), `feedback.test.ts` (upsert umpan balik, Admin ditolak), `demo-store.test.ts` (validasi URL toko demo), `guides.test.ts` (aturan publish panduan, matriks akses, dan tautan fitur yang tidak boleh bocor), `schedule.test.ts` (jadwal publish, termasuk pembatalan otomatis bila aturan tidak lagi terpenuhi), `settings.test.ts` (validasi repo dan token, enkripsi, riwayat tanpa nilai rahasia, dan cadangan ke variabel lingkungan), `github-webhook.test.ts` (tanda tangan, repo lain, kiriman ulang, PR yang di-merge, dan commit langsung), `triage.test.ts` (aturan triase, pengelompokan per fitur, tebakan Jenis, pengingat, dan regresi hitungan langkah), dan `website-pages.test.ts` (halaman website benar-benar dirender ke HTML dan diperiksa, bukan hanya datanya — termasuk FAQ, tombol "Coba di toko demo", gambar promosi, Panduan skenario, dan "Baru minggu ini").
 
 ## Website dan pratinjau Admin
 
@@ -178,7 +200,7 @@ app/
 │   │                   feedback, media, users, auth, password, dal, peta-fitur,
 │   │                   guides dan guide-rules (panduan skenario), schedule (jadwal publish),
 │   │                   settings dan secret-box (Pengaturan, enkripsi token),
-│   │                   github-webhook dan github-changes (webhook dan tindak lanjutnya di Inbox)
+│   │                   github-webhook, github-changes, dan triage (webhook, triase, dan Inbox)
 │   └── proxy.ts        pengalihan awal ke /masuk bila tanpa cookie sesi
 ├── drizzle/            berkas migrasi (ikut git)
 ├── scripts/            migrate, seed-admin, seed-peta, admin-reset, publish-due (jadwal publish untuk cron)

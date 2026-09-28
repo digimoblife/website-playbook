@@ -725,6 +725,8 @@ export type InboxRow = AdminListRow & {
   missing: string[];
   /** Tombol Publish hanya untuk entri yang akan terlihat pembaca DAN lengkap. */
   canPublishNow: boolean;
+  /** Dibuat dari PR atau commit GitHub (Tarik dari GitHub atau webhook). */
+  fromGithub: boolean;
 };
 
 /**
@@ -740,7 +742,11 @@ export function listInbox(db: AppDb = getDb()): InboxRow[] {
       canPromise: entries.canPromise,
       cannotPromise: entries.cannotPromise,
       scheduledPublishAt: entries.scheduledPublishAt,
-      stepCount: sql<number>`(select count(*) from ${entrySteps} where ${entrySteps.entryId} = ${entries.id})`,
+      sourcePrNumber: entries.sourcePrNumber,
+      // Nama tabel ditulis eksplisit: Drizzle merender ${kolom} tanpa nama tabel di dalam sql``,
+      // sehingga "id" akan merujuk ke tabel di subquery, bukan ke entries.
+      linkedChanges: sql<number>`(select count(*) from "github_changes" where "github_changes"."entry_id" = "entries"."id")`,
+      stepCount: sql<number>`(select count(*) from "entry_steps" where "entry_steps"."entry_id" = "entries"."id")`,
     })
     .from(entries)
     .where(isNull(entries.archivedAt))
@@ -748,7 +754,7 @@ export function listInbox(db: AppDb = getDb()): InboxRow[] {
     .all();
   return rows
     .filter((row) => !isVisibleToReaders(row))
-    .map(({ summary, canPromise, cannotPromise, stepCount, ...row }) => {
+    .map(({ summary, canPromise, cannotPromise, stepCount, sourcePrNumber, linkedChanges, ...row }) => {
       const willBeVisible = readersWhoCanView(row).length > 0;
       const missing = missingForPublish(
         { summary, canPromise, cannotPromise, status: row.status, audience: row.audience },
@@ -760,6 +766,7 @@ export function listInbox(db: AppDb = getDb()): InboxRow[] {
         willBeVisible,
         missing,
         canPublishNow: !row.isPublished && willBeVisible && missing.length === 0,
+        fromGithub: sourcePrNumber !== null || linkedChanges > 0,
       };
     });
 }

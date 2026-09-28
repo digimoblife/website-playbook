@@ -403,7 +403,8 @@ export function listGuidesAdmin(db: AppDb = getDb()): AdminGuideRow[] {
       isPublished: guides.isPublished,
       archivedAt: guides.archivedAt,
       updatedAt: guides.updatedAt,
-      stepCount: sql<number>`(select count(*) from ${guideSteps} where ${guideSteps.guideId} = ${guides.id})`,
+      // Nama tabel eksplisit (lihat catatan di listInbox, lib/admin-entries.ts).
+      stepCount: sql<number>`(select count(*) from "guide_steps" where "guide_steps"."guide_id" = "guides"."id")`,
     })
     .from(guides)
     .orderBy(desc(guides.updatedAt), desc(guides.id))

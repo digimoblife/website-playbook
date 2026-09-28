@@ -7,7 +7,14 @@ import { pullFromGithub } from "@/lib/admin-entries";
 import { requireAdmin } from "@/lib/dal";
 import { getPullRequestDetail } from "@/lib/github-api";
 import { getGithubConfig } from "@/lib/settings";
-import { createEntryFromCommit, getGithubChange, markGithubChangeReviewed } from "@/lib/github-changes";
+import {
+  applyTriageToNewEntry,
+  createEntryFromCommit,
+  getEnrichedGithubChange,
+  getGithubChange,
+  markGithubChangeReviewed,
+  setGithubChangeBucket,
+} from "@/lib/github-changes";
 
 // requireAdmin() dipanggil PERTAMA, sebelum membaca input apa pun — pola sama seperti
 // src/app/admin/entri/actions.ts. Pengguna selain Admin dialihkan dan tidak ada yang berubah.
@@ -58,6 +65,7 @@ function parseId(formData: FormData): number | null {
 function revalidateInbox(): void {
   revalidatePath("/admin");
   revalidatePath("/admin/entri");
+  revalidatePath("/admin/github/triase");
 }
 
 export async function markChangeReviewedAction(
@@ -118,8 +126,29 @@ export async function draftFromPullRequestAction(
     admin.id,
   );
   if (!result.ok) return { ok: false, error: result.error };
+  // Slug dari kunci Fitur dan Jenis dari aturan triase (tercatat di riwayat sebagai tebakan).
+  const enriched = getEnrichedGithubChange(id);
+  if (enriched) applyTriageToNewEntry(result.id, enriched, admin.id);
   markGithubChangeReviewed(id, admin.id, undefined, result.id);
   revalidateInbox();
   revalidatePath("/admin/github");
   redirect(`/admin/entri/${result.id}`);
+}
+
+/** Admin memindahkan perubahan antar kelompok triase (kandidat, perbaikan, arsip). */
+export async function setChangeBucketAction(
+  _prev: ChangeActionResult | undefined,
+  formData: FormData,
+): Promise<ChangeActionResult> {
+  await requireAdmin();
+  const id = parseId(formData);
+  if (!id) return { ok: false, error: "Perubahan tidak valid." };
+  const bucket = formData.get("bucket");
+  const result = setGithubChangeBucket(id, bucket);
+  if (!result.ok) return { ok: false, error: result.error };
+  revalidateInbox();
+  return {
+    ok: true,
+    message: bucket === "kandidat" ? "Dipindahkan ke kandidat di Inbox." : bucket === "arsip" ? "Dipindahkan ke Arsip GitHub." : "Dipindahkan ke Perbaikan.",
+  };
 }

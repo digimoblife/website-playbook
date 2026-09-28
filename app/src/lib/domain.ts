@@ -28,6 +28,9 @@ export const GITHUB_CHANGE_KINDS = ["pr", "commit"] as const;
 export type GithubChangeKind = (typeof GITHUB_CHANGE_KINDS)[number];
 export const GITHUB_CHANGE_STATES = ["baru", "ditinjau"] as const;
 export type GithubChangeState = (typeof GITHUB_CHANGE_STATES)[number];
+// Hasil triase (Langkah 6d, lib/triage.ts).
+export const TRIAGE_BUCKETS = ["kandidat", "perbaikan", "arsip"] as const;
+export type TriageBucket = (typeof TRIAGE_BUCKETS)[number];
 
 // Tag kebutuhan pelanggan: pilihan tetap. Yang disimpan di database adalah `key`.
 export const NEEDS_TAGS = [

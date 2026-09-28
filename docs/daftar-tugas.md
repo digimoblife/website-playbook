@@ -85,12 +85,12 @@ Otomasi baru dimulai setelah kurasi manual Fase 1 terbukti nyaman. Tambah entri 
 
 ### Triase dan draf AI
 - [~] Draf AI dari judul, deskripsi, dan nama file PR (percobaan, Gemini)
-- [ ] Saring otomatis: copy, docs, test, chore, dan style langsung ke Arsip
-- [ ] Daftar perbaikan (fix) terpisah yang jarang ditinjau
-- [ ] Pencocokan ke peta fitur lewat trailer "Fitur:"; hasilnya Pembaruan atau Kandidat fitur baru
+- [x] Saring otomatis: copy, docs, test, chore, dan style langsung ke Arsip GitHub; Admin bisa mengembalikannya (Langkah 6d)
+- [x] Daftar perbaikan (fix) terpisah yang jarang ditinjau (Langkah 6d)
+- [x] Pencocokan ke peta fitur lewat trailer "Fitur:"; hasilnya Pembaruan atau Kandidat fitur baru, dengan tebakan Jenis dari audit/validasi-jenis.md (Langkah 6d)
 - [ ] AI memecah satu PR berisi banyak fitur menjadi beberapa usulan entri
-- [ ] Inbox dikelompokkan per fitur dan berlabel hasil triase
-- [ ] Pengingat untuk draf yang menunggu lebih dari seminggu
+- [x] Inbox dikelompokkan per fitur dan berlabel hasil triase (Langkah 6d)
+- [x] Pengingat untuk draf dan perubahan yang menunggu lebih dari seminggu (Langkah 6d; hanya draf dari GitHub atau yang sudah diatur tampil)
 
 ### Screenshot otomatis
 - [ ] Tabel dan editor skenario screenshot per fitur

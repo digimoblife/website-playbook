@@ -130,7 +130,7 @@ describe("Pull request", () => {
 
   it("PR yang di-merge ke main dicatat sebagai perubahan baru", async () => {
     expect((await send("pull_request", mergedPr())).status).toBe(200);
-    const [row] = listNewGithubChanges(db);
+    const [row] = listNewGithubChanges("kandidat", db);
     expect(row).toMatchObject({
       kind: "pr",
       prNumber: 12,
@@ -168,7 +168,9 @@ describe("Push ke branch utama", () => {
       ]),
     );
     expect(res).toEqual({ status: 200, text: "1 commit langsung dicatat." });
-    const [row] = listNewGithubChanges(db);
+    // Bertipe fix, jadi masuk Perbaikan (Langkah 6d), bukan kandidat.
+    expect(listNewGithubChanges("kandidat", db)).toEqual([]);
+    const [row] = listNewGithubChanges("perbaikan", db);
     expect(row).toMatchObject({
       kind: "commit",
       commitSha: "a".repeat(40),
@@ -194,22 +196,22 @@ describe("Tindak lanjut di Inbox", () => {
   it("tandai ditinjau: hilang dari daftar baru", async () => {
     await send("pull_request", mergedPr());
     const adminId = insertUserRow(db, { email: "admin@uji.lokal", role: "admin" }).id;
-    const [row] = listNewGithubChanges(db);
+    const [row] = listNewGithubChanges("kandidat", db);
     expect(markGithubChangeReviewed(row.id, adminId, db).ok).toBe(true);
-    expect(listNewGithubChanges(db)).toEqual([]);
+    expect(listNewGithubChanges("kandidat", db)).toEqual([]);
     expect(markGithubChangeReviewed(row.id, adminId, db).ok).toBe(false);
   });
 
   it("buat entri dari commit: entri Internal, belum terbit, berjudul pesan commit, dan tertaut", async () => {
     await send("push", push([commit("f".repeat(40), "feat: " + "x".repeat(200))]));
     const adminId = insertUserRow(db, { email: "admin@uji.lokal", role: "admin" }).id;
-    const [row] = listNewGithubChanges(db);
+    const [row] = listNewGithubChanges("kandidat", db);
     const r = createEntryFromCommit(row.id, adminId, db);
     expect(r.ok).toBe(true);
     const entry = db.select().from(entries).get()!;
     expect(entry).toMatchObject({ status: "internal", audience: "internal", isPublished: false });
     expect(entry.title.length).toBe(120);
     expect(db.select().from(githubChanges).get()).toMatchObject({ state: "ditinjau", entryId: entry.id });
-    expect(listNewGithubChanges(db)).toEqual([]);
+    expect(listNewGithubChanges("kandidat", db)).toEqual([]);
   });
 });

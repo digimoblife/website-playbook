@@ -9,8 +9,15 @@ import { STATUSES } from "@/lib/domain";
 import { formatDateTime } from "@/lib/format";
 import { AUDIENCE_LABEL, KIND_LABEL, NATURE_LABEL, ROLE_LABEL } from "@/lib/labels";
 import { archiveEntryAction, publishEntryAction } from "./entri/actions";
-import { createEntryFromCommitAction, draftFromPullRequestAction, markChangeReviewedAction } from "./github/actions";
-import { listNewGithubChanges, type GithubChangeRow } from "@/lib/github-changes";
+import { ChangeItem } from "./github/change-item";
+import {
+  countNewGithubChanges,
+  groupChanges,
+  isWaitingTooLong,
+  needsDraftReminder,
+  listNewGithubChanges,
+  WAITING_REMINDER_DAYS,
+} from "@/lib/github-changes";
 
 export const metadata: Metadata = { title: "Inbox" };
 
@@ -24,9 +31,11 @@ export default async function InboxPage() {
   const user = await requireAdmin();
   runDueSchedules();
   const rows = listInbox();
-  const changes = listNewGithubChanges();
-  const prs = changes.filter((c) => c.kind === "pr");
-  const commits = changes.filter((c) => c.kind === "commit");
+  const changes = listNewGithubChanges("kandidat");
+  const groups = groupChanges(changes);
+  const counts = countNewGithubChanges();
+  const staleDrafts = rows.filter(needsDraftReminder).length;
+  const staleChanges = changes.filter((change) => isWaitingTooLong(change.receivedAt)).length;
 
   return (
     <>
@@ -43,32 +52,50 @@ export default async function InboxPage() {
         </Link>
       </div>
 
-      {changes.length > 0 && (
+      {(staleDrafts > 0 || staleChanges > 0) && (
+        <div className="alert alert-danger notice" role="status">
+          <strong>Pengingat:</strong>{" "}
+          {[
+            staleDrafts > 0 && `${staleDrafts} draf belum disentuh lebih dari ${WAITING_REMINDER_DAYS} hari`,
+            staleChanges > 0 && `${staleChanges} perubahan dari GitHub menunggu lebih dari ${WAITING_REMINDER_DAYS} hari`,
+          ]
+            .filter(Boolean)
+            .join(", ")}
+          . Terbitkan, arsipkan, atau tandai ditinjau supaya Playbook tidak basi.
+        </div>
+      )}
+
+      {(changes.length > 0 || counts.perbaikan > 0 || counts.arsip > 0) && (
         <section className="card" aria-labelledby="dari-github" style={{ marginBottom: "1.5rem" }}>
           <h2 id="dari-github">Dari GitHub</h2>
           <p className="muted" style={{ marginTop: 0 }}>
-            Masuk lewat webhook. Tidak ada yang terbit otomatis: buat draf atau entri, lalu kurasi seperti biasa. Entri
-            yang dibuat dari sini selalu Internal.
+            Kandidat dari PR yang di-merge dan commit langsung (perlu ditinjau), dikelompokkan per fitur lewat kunci
+            &ldquo;Fitur:&rdquo;. Fitur inti dan add-on sama-sama masuk; Jenis hanya label. Tidak ada yang terbit
+            otomatis dan entri yang dibuat dari sini selalu Internal.
           </p>
-          {prs.length > 0 && (
-            <>
-              <h3>PR yang di-merge ({prs.length})</h3>
-              <ul className="entry-list">
-                {prs.map((change) => (
-                  <ChangeItem key={change.id} change={change} />
-                ))}
-              </ul>
-            </>
-          )}
-          {commits.length > 0 && (
-            <>
-              <h3>Perlu ditinjau: commit langsung ke branch utama ({commits.length})</h3>
-              <ul className="entry-list">
-                {commits.map((change) => (
-                  <ChangeItem key={change.id} change={change} />
-                ))}
-              </ul>
-            </>
+          <nav className="chip-row" aria-label="Daftar lain dari GitHub">
+            <Link href="/admin/github/triase?daftar=perbaikan" className="chip">
+              Perbaikan ({counts.perbaikan})
+            </Link>
+            <Link href="/admin/github/triase?daftar=arsip" className="chip">
+              Arsip GitHub ({counts.arsip})
+            </Link>
+          </nav>
+          {groups.length === 0 ? (
+            <p className="muted">Tidak ada kandidat baru.</p>
+          ) : (
+            groups.map((group) => (
+              <div key={group.key}>
+                <h3>
+                  {group.label} ({group.changes.length})
+                </h3>
+                <ul className="entry-list">
+                  {group.changes.map((change) => (
+                    <ChangeItem key={change.id} change={change} />
+                  ))}
+                </ul>
+              </div>
+            ))
           )}
         </section>
       )}
@@ -95,6 +122,9 @@ export default async function InboxPage() {
                   <span className="badge badge-internal">{NATURE_LABEL[row.nature]}</span>
                   <span className="muted">Audiens: {AUDIENCE_LABEL[row.audience]}</span>
                   <span className="muted">Diperbarui {formatDateTime(row.updatedAt)}</span>
+                  {needsDraftReminder(row) && (
+                    <span className="badge badge-beta">Menunggu lebih dari {WAITING_REMINDER_DAYS} hari</span>
+                  )}
                 </div>
                 {row.scheduledPublishAt && (
                   <p className="note">
@@ -147,41 +177,5 @@ export default async function InboxPage() {
         </ul>
       </section>
     </>
-  );
-}
-
-function ChangeItem({ change }: { change: GithubChangeRow }) {
-  const label = change.kind === "pr" ? `PR #${change.prNumber}` : `Commit ${change.commitSha?.slice(0, 7)}`;
-  return (
-    <li className="entry-item">
-      <h2>
-        {change.url ? (
-          <a href={change.url} target="_blank" rel="noopener noreferrer">
-            {change.title}
-          </a>
-        ) : (
-          change.title
-        )}
-      </h2>
-      <div className="badges">
-        <span className="badge badge-role">{label}</span>
-        <span className="muted">{change.repo}</span>
-        <span className="muted">{formatDateTime(change.happenedAt)}</span>
-      </div>
-      {change.files.length > 0 && (
-        <p className="note" style={{ margin: 0 }}>
-          {change.files.length} file berubah: {change.files.slice(0, 5).join(", ")}
-          {change.files.length > 5 ? ", …" : ""}
-        </p>
-      )}
-      <div className="item-actions">
-        {change.kind === "pr" ? (
-          <ActionForm action={draftFromPullRequestAction} id={change.id} label="Buat draf AI" variant="primary" />
-        ) : (
-          <ActionForm action={createEntryFromCommitAction} id={change.id} label="Buat entri" variant="primary" />
-        )}
-        <ActionForm action={markChangeReviewedAction} id={change.id} label="Tandai ditinjau" />
-      </div>
-    </li>
   );
 }
