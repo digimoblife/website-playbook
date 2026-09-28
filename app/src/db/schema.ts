@@ -393,3 +393,32 @@ export const webhookDeliveries = sqliteTable("webhook_deliveries", {
     .notNull()
     .default(nowMs),
 });
+
+// Usulan entri dari AI untuk satu PR (Langkah 6d). Satu PR bisa berisi beberapa fitur; setiap
+// usulan baru menjadi entri bila Admin memilihnya. Usulan sendiri tidak pernah terlihat pembaca.
+export const aiProposals = sqliteTable(
+  "ai_proposals",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    changeId: integer("change_id")
+      .notNull()
+      .references(() => githubChanges.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull().default(""),
+    problem: text("problem").notNull().default(""),
+    forWhom: text("for_whom").notNull().default(""),
+    explanation: text("explanation").notNull().default(""),
+    kind: text("kind", { enum: KINDS }).notNull().default("core"),
+    nature: text("nature", { enum: NATURES }).notNull().default("new"),
+    entryId: integer("entry_id").references(() => entries.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(nowMs),
+  },
+  (t) => [
+    check("ai_proposals_kind_check", oneOf(t.kind, KINDS)),
+    check("ai_proposals_nature_check", oneOf(t.nature, NATURES)),
+    index("ai_proposals_change_id_idx").on(t.changeId),
+  ],
+);

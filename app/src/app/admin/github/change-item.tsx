@@ -49,7 +49,12 @@ export function ChangeItem({ change }: { change: GithubChangeRow }) {
             Buka entri
           </Link>
         ) : change.kind === "pr" ? (
-          <ActionForm action={draftFromPullRequestAction} id={change.id} label="Buat draf AI" variant="primary" />
+          <>
+            <ActionForm action={draftFromPullRequestAction} id={change.id} label="Buat draf AI" variant="primary" />
+            <Link href={`/admin/github/usulan/${change.id}`} className="btn btn-secondary">
+              Lihat usulan
+            </Link>
+          </>
         ) : (
           <ActionForm action={createEntryFromCommitAction} id={change.id} label="Buat entri" variant="primary" />
         )}

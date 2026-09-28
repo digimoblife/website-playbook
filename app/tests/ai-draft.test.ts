@@ -134,3 +134,45 @@ describe("generateAiDraft: gagal", () => {
     expect(res.status).toBe("error");
   });
 });
+
+describe("parseProposals dan generateAiProposals (Langkah 6d)", () => {
+  const item = (title: string, kind = "core") =>
+    ({ title, summary: "s", problem: "p", forWhom: "f", explanation: "e", kind, nature: "new" });
+
+  it("menerima {proposals}, larik langsung, atau satu objek lama; buang yang rusak dan judul ganda; maksimal 5", async () => {
+    const { parseProposals } = await import("@/lib/ai-draft");
+    expect(parseProposals(JSON.stringify({ proposals: [item("A"), item("B", "addon")] }))!.map((p) => [p.title, p.kind])).toEqual([
+      ["A", "core"],
+      ["B", "addon"],
+    ]);
+    expect(parseProposals(JSON.stringify([item("A")]))!).toHaveLength(1);
+    expect(parseProposals(JSON.stringify(item("Satu"))))!.toHaveLength(1);
+    expect(parseProposals("```json\n" + JSON.stringify({ proposals: [item("A"), item("a"), { title: "" }, "x"] }) + "\n```")!).toHaveLength(1);
+    expect(parseProposals(JSON.stringify({ proposals: "ABCDEFG".split("").map((t) => item(t)) }))!).toHaveLength(5);
+    expect(parseProposals("bukan json")).toBeNull();
+    expect(parseProposals(JSON.stringify({ proposals: [] }))).toBeNull();
+  });
+
+  it("status dan audiens dari AI diabaikan (tidak ada di hasil)", async () => {
+    const { parseProposals } = await import("@/lib/ai-draft");
+    const [p] = parseProposals(JSON.stringify({ proposals: [{ ...item("A"), status: "siap", audience: "partner" }] }))!;
+    expect(p).not.toHaveProperty("status");
+    expect(p).not.toHaveProperty("audience");
+  });
+
+  it("mencoba ulang sekali bila format rusak; tanpa kunci AI tidak memanggil apa pun", async () => {
+    const { generateAiProposals } = await import("@/lib/ai-draft");
+    process.env.AI_API_KEY = "kunci-uji";
+    process.env.AI_MODEL = "model-uji";
+    const callApi = vi.fn().mockResolvedValueOnce("rusak").mockResolvedValueOnce(JSON.stringify({ proposals: [item("A"), item("B")] }));
+    const res = await generateAiProposals(input, { callApi });
+    expect(res).toMatchObject({ status: "ok", proposals: [{ title: "A" }, { title: "B" }] });
+    expect(callApi).toHaveBeenCalledTimes(2);
+    expect(callApi.mock.calls[0][0]).toContain("Judul PR: Tambah kunci stok");
+
+    delete process.env.AI_API_KEY;
+    const never = vi.fn();
+    expect((await generateAiProposals(input, { callApi: never })).status).toBe("unavailable");
+    expect(never).not.toHaveBeenCalled();
+  });
+});

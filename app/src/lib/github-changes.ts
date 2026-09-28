@@ -4,10 +4,11 @@
 // Fungsi di sini TIDAK memeriksa siapa pemanggilnya; pemeriksaan Admin ada di Server Action
 // (app/admin/github/actions.ts). Tidak ada yang terbit otomatis: entri yang dibuat dari sini selalu
 // Internal, beraudiens Internal, dan belum terbit (createEntry / pullFromGithub).
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { getDb, type AppDb } from "@/db/client";
-import { entries, githubChanges } from "@/db/schema";
-import { createEntry, logHistory, type DbLike, type Result } from "@/lib/admin-entries";
+import { aiProposals, entries, githubChanges } from "@/db/schema";
+import { createEntry, logHistory, pullFromGithub, type DbLike, type Result } from "@/lib/admin-entries";
+import type { AiDraftFields } from "@/lib/ai-draft";
 import { LIMITS, TRIAGE_BUCKETS, type GithubChangeKind, type Kind, type TriageBucket } from "@/lib/domain";
 import { KIND_LABEL } from "@/lib/labels";
 import { isValidSlug } from "@/lib/slug";
@@ -250,4 +251,76 @@ export function needsDraftReminder(row: { fromGithub: boolean; willBeVisible: bo
 /** Apakah sebuah tanggal sudah lewat dari batas pengingat (dipakai Inbox). */
 export function isWaitingTooLong(date: Date | null, now: number = Date.now()): boolean {
   return date !== null && now - date.getTime() > WAITING_REMINDER_DAYS * 24 * 60 * 60 * 1000;
+}
+
+// ---------- Usulan AI untuk satu PR (Langkah 6d) ----------
+
+export type ProposalRow = typeof aiProposals.$inferSelect;
+
+/**
+ * Menyimpan usulan AI untuk sebuah PR. Usulan lama yang BELUM dijadikan entri diganti; yang sudah
+ * menjadi entri dipertahankan. Nama file PR (bukan isinya) ikut dicatat di perubahan.
+ */
+export function saveProposals(
+  changeId: number,
+  proposals: AiDraftFields[],
+  files: string[],
+  db: AppDb = getDb(),
+): void {
+  db.transaction((tx) => {
+    tx.delete(aiProposals).where(and(eq(aiProposals.changeId, changeId), isNull(aiProposals.entryId))).run();
+    const kept = tx.select({ id: aiProposals.id }).from(aiProposals).where(eq(aiProposals.changeId, changeId)).all().length;
+    tx.insert(aiProposals)
+      .values(proposals.map((p, index) => ({ changeId, position: kept + index + 1, ...p })))
+      .run();
+    tx.update(githubChanges).set({ files: JSON.stringify(files.slice(0, 300)) }).where(eq(githubChanges.id, changeId)).run();
+  });
+}
+
+export function listProposals(changeId: number, db: AppDb = getDb()): ProposalRow[] {
+  return db
+    .select()
+    .from(aiProposals)
+    .where(eq(aiProposals.changeId, changeId))
+    .orderBy(asc(aiProposals.position), asc(aiProposals.id))
+    .all();
+}
+
+/**
+ * Admin memilih satu usulan untuk dijadikan entri. Entri selalu Internal, beraudiens Internal, dan
+ * belum terbit (pullFromGithub). Jenis dan Sifat usulan AI dicatat sebagai usulan di riwayat.
+ */
+export function createEntryFromProposal(
+  proposalId: number,
+  actorId: number,
+  db: AppDb = getDb(),
+): Result<{ entryId: number; changeId: number }> {
+  const proposal = db.select().from(aiProposals).where(eq(aiProposals.id, proposalId)).get();
+  if (!proposal) return fail("Usulan tidak ditemukan.");
+  if (proposal.entryId) return fail("Usulan ini sudah dijadikan entri.");
+  const change = getGithubChange(proposal.changeId, db);
+  if (!change || change.kind !== "pr" || change.prNumber === null) return fail("PR asal tidak ditemukan.");
+
+  const created = pullFromGithub(
+    { number: change.prNumber, title: change.title, url: change.url, repo: change.repo },
+    proposal,
+    actorId,
+    db,
+  );
+  if (!created.ok) return created;
+  db.update(aiProposals).set({ entryId: created.id }).where(eq(aiProposals.id, proposalId)).run();
+  const total = listProposals(proposal.changeId, db).length;
+  logHistory(
+    db,
+    created.id,
+    actorId,
+    `Dari usulan AI ${proposal.position} dari ${total} untuk PR #${change.prNumber}; Jenis ${KIND_LABEL[proposal.kind]} diusulkan AI, periksa di editor`,
+  );
+  return { ok: true, entryId: created.id, changeId: proposal.changeId };
+}
+
+/** Selesai memilih usulan: PR ditandai ditinjau dan ditautkan ke entri pertama yang dibuat. */
+export function finishProposals(changeId: number, actorId: number, db: AppDb = getDb()): Result {
+  const firstEntry = listProposals(changeId, db).find((p) => p.entryId)?.entryId ?? null;
+  return markGithubChangeReviewed(changeId, actorId, db, firstEntry);
 }

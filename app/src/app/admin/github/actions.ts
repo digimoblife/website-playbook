@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { generateAiDraft } from "@/lib/ai-draft";
+import { generateAiDraft, generateAiProposals } from "@/lib/ai-draft";
 import { pullFromGithub } from "@/lib/admin-entries";
 import { requireAdmin } from "@/lib/dal";
 import { getPullRequestDetail } from "@/lib/github-api";
@@ -10,6 +10,9 @@ import { getGithubConfig } from "@/lib/settings";
 import {
   applyTriageToNewEntry,
   createEntryFromCommit,
+  createEntryFromProposal,
+  finishProposals,
+  saveProposals,
   getEnrichedGithubChange,
   getGithubChange,
   markGithubChangeReviewed,
@@ -116,13 +119,21 @@ export async function draftFromPullRequestAction(
   const detail = await getPullRequestDetail(config, change.prNumber);
   if (!detail.ok) return { ok: false, error: detail.error };
   const pr = detail.data;
-  const draft = await generateAiDraft({ prTitle: pr.title, prBody: pr.body, files: pr.files });
-  if (draft.status !== "ok") return { ok: false, error: draft.message };
+  // AI hanya menerima judul, deskripsi, dan nama file PR; boleh memecahnya menjadi beberapa usulan.
+  const ai = await generateAiProposals({ prTitle: pr.title, prBody: pr.body, files: pr.files });
+  if (ai.status !== "ok") return { ok: false, error: ai.message };
 
-  // Selalu Internal/Internal dan belum terbit (pullFromGithub memaksanya).
+  if (ai.proposals.length > 1) {
+    // Lebih dari satu fitur: Admin memilih usulan mana yang dijadikan entri.
+    saveProposals(id, ai.proposals, pr.files);
+    revalidateInbox();
+    redirect(`/admin/github/usulan/${id}`);
+  }
+
+  // Satu usulan: langsung dijadikan entri. Selalu Internal/Internal dan belum terbit (pullFromGithub).
   const result = pullFromGithub(
     { number: pr.number, title: pr.title, url: pr.url, repo: config.repo },
-    draft.draft,
+    ai.proposals[0],
     admin.id,
   );
   if (!result.ok) return { ok: false, error: result.error };
@@ -151,4 +162,31 @@ export async function setChangeBucketAction(
     ok: true,
     message: bucket === "kandidat" ? "Dipindahkan ke kandidat di Inbox." : bucket === "arsip" ? "Dipindahkan ke Arsip GitHub." : "Dipindahkan ke Perbaikan.",
   };
+}
+
+export async function createEntryFromProposalAction(
+  _prev: ChangeActionResult | undefined,
+  formData: FormData,
+): Promise<ChangeActionResult> {
+  const admin = await requireAdmin();
+  const id = parseId(formData);
+  if (!id) return { ok: false, error: "Usulan tidak valid." };
+  const result = createEntryFromProposal(id, admin.id);
+  if (!result.ok) return { ok: false, error: result.error };
+  revalidatePath(`/admin/github/usulan/${result.changeId}`);
+  revalidateInbox();
+  return { ok: true, message: "Entri dibuat (Internal)." };
+}
+
+export async function finishProposalsAction(
+  _prev: ChangeActionResult | undefined,
+  formData: FormData,
+): Promise<ChangeActionResult> {
+  const admin = await requireAdmin();
+  const id = parseId(formData);
+  if (!id) return { ok: false, error: "Perubahan tidak valid." };
+  const result = finishProposals(id, admin.id);
+  if (!result.ok) return { ok: false, error: result.error };
+  revalidateInbox();
+  redirect("/admin");
 }

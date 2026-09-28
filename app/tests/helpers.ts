@@ -13,6 +13,7 @@ import {
   appSettings,
   settingsHistory,
   githubChanges,
+  aiProposals,
   media,
   sessions,
   users,
@@ -126,6 +127,7 @@ export function snapshot(db: AppDb): string {
     appSettings: db.select().from(appSettings).all(),
     settingsHistory: db.select().from(settingsHistory).orderBy(settingsHistory.id).all(),
     githubChanges: db.select().from(githubChanges).orderBy(githubChanges.id).all(),
+    aiProposals: db.select().from(aiProposals).orderBy(aiProposals.id).all(),
   });
 }
 

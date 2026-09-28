@@ -10,7 +10,7 @@ Lapaq Playbook adalah website panduan produk yang membuat tim marketing internal
 
 Sumber acuan: `docs/blueprint.md`. Jika berbeda dengan dokumen Blueprint asli di Claude Docs, dokumen asli yang berlaku.
 
-Fase 1 sedang berjalan: Langkah 5 selesai (panduan skenario, gambar promosi, jadwal publish, Baru minggu ini, tampilan ponsel). Sisa Fase 1: deployment ke VPS (Langkah 4, diatur manual oleh Product Manager) dan uji penutupan. Fase 2 dimulai: Langkah 6a (Pengaturan), 6b (validasi Jenis, `audit/validasi-jenis.md`), 6c (webhook GitHub), dan 6d (triase, kecuali pemecahan PR oleh AI) selesai. Daftar lengkap: `docs/daftar-tugas.md`.
+Fase 1 sedang berjalan: Langkah 5 selesai (panduan skenario, gambar promosi, jadwal publish, Baru minggu ini, tampilan ponsel). Sisa Fase 1: deployment ke VPS (Langkah 4, diatur manual oleh Product Manager) dan uji penutupan. Fase 2 dimulai: Langkah 6a (Pengaturan), 6b (validasi Jenis, `audit/validasi-jenis.md`), 6c (webhook GitHub), dan 6d (triase dan pemecahan PR oleh AI) selesai. Daftar lengkap: `docs/daftar-tugas.md`.
 
 ## Keputusan kunci (dari blueprint)
 

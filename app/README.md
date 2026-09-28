@@ -2,7 +2,7 @@
 
 Website panduan produk Lapaq untuk tim marketing internal dan partner JV, dengan dashboard admin untuk Product Manager. Rancangan lengkap ada di `../docs/blueprint.md`.
 
-**Status: Fase 1, Langkah 5 selesai; Fase 2, Langkah 6a (Pengaturan), 6c (webhook GitHub), dan 6d (triase) selesai.** Sudah ada: database, login dan peran, aturan akses konten, dashboard admin lengkap (termasuk jadwal publish), website untuk pembaca (Beranda dengan "Baru minggu ini", Apa yang baru, Katalog dengan filter tag, halaman fitur dengan FAQ, gambar promosi yang bisa diunduh, dan tombol "Coba di toko demo", Panduan skenario, umpan balik "Apakah halaman ini membantu?", pratinjau "Lihat sebagai" untuk Admin), serta percobaan "Tarik dari GitHub" dengan draf AI (Langkah 4-experimental, penarikan manual per PR). Menu **Pengaturan** mengatur nama produk, repo GitHub, token GitHub, dan toko demo. Webhook GitHub mencatat PR yang di-merge dan commit langsung ke branch utama ke bagian "Dari GitHub" di Inbox. Perubahan itu ditriase otomatis dan dikelompokkan per fitur. Belum ada: deployment (Langkah 4), pemecahan satu PR menjadi beberapa usulan entri oleh AI, dan screenshot otomatis (Fase 2).
+**Status: Fase 1, Langkah 5 selesai; Fase 2, Langkah 6a (Pengaturan), 6c (webhook GitHub), dan 6d (triase) selesai.** Sudah ada: database, login dan peran, aturan akses konten, dashboard admin lengkap (termasuk jadwal publish), website untuk pembaca (Beranda dengan "Baru minggu ini", Apa yang baru, Katalog dengan filter tag, halaman fitur dengan FAQ, gambar promosi yang bisa diunduh, dan tombol "Coba di toko demo", Panduan skenario, umpan balik "Apakah halaman ini membantu?", pratinjau "Lihat sebagai" untuk Admin), serta percobaan "Tarik dari GitHub" dengan draf AI (Langkah 4-experimental, penarikan manual per PR). Menu **Pengaturan** mengatur nama produk, repo GitHub, token GitHub, dan toko demo. Webhook GitHub mencatat PR yang di-merge dan commit langsung ke branch utama ke bagian "Dari GitHub" di Inbox. Perubahan itu ditriase otomatis dan dikelompokkan per fitur. Draf AI untuk PR bisa dipecah menjadi beberapa usulan entri. Belum ada: deployment (Langkah 4) dan screenshot otomatis (Fase 2).
 
 Teknologi: Next.js 16 (App Router, TypeScript), SQLite lewat Drizzle ORM, argon2id untuk kata sandi, Vitest untuk tes.
 
@@ -32,7 +32,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-Sudah punya database dari langkah sebelumnya? Cukup jalankan `npm run db:migrate`. Setiap migrasi (Langkah 2: dua kolom dan dua pemicu; Langkah 3: indeks unik pada umpan balik halaman; Langkah 3d: tabel `entry_faqs`; Langkah 4-experimental: tabel `github_imports`; Langkah 5: tabel `guides`, `guide_steps`, `guide_history` dan kolom jadwal publish pada `entries`; Langkah 6a: tabel `app_settings`, `settings_history`, dan kolom `repo` pada `github_imports`; Langkah 6c: tabel `github_changes` dan `webhook_deliveries`; Langkah 6d: kolom `bucket` pada `github_changes`, lewat pembuatan ulang tabel yang menyalin semua baris) bersifat aditif dan tidak menghapus atau mengubah data yang ada.
+Sudah punya database dari langkah sebelumnya? Cukup jalankan `npm run db:migrate`. Setiap migrasi (Langkah 2: dua kolom dan dua pemicu; Langkah 3: indeks unik pada umpan balik halaman; Langkah 3d: tabel `entry_faqs`; Langkah 4-experimental: tabel `github_imports`; Langkah 5: tabel `guides`, `guide_steps`, `guide_history` dan kolom jadwal publish pada `entries`; Langkah 6a: tabel `app_settings`, `settings_history`, dan kolom `repo` pada `github_imports`; Langkah 6c: tabel `github_changes` dan `webhook_deliveries`; Langkah 6d: kolom `bucket` pada `github_changes`, lewat pembuatan ulang tabel yang menyalin semua baris, dan tabel `ai_proposals`) bersifat aditif dan tidak menghapus atau mengubah data yang ada.
 
 Setelah seed berhasil, **hapus `ADMIN_PASSWORD` dari `.env.local`**. Seed aman dijalankan ulang: akun yang sudah ada tidak diubah, dan kata sandi tidak pernah dicetak.
 
@@ -112,6 +112,8 @@ Kandidat di Inbox dikelompokkan per fitur lewat trailer `Fitur: slug` di pesan c
 - **Belum berkunci Fitur**: tanpa trailer.
 
 Tanpa kunci yang cocok, Jenis **ditebak** (label "Tebakan") sesuai `audit/validasi-jenis.md`: Add-on bila menyentuh file layanan add-on tertentu atau judulnya menyebut nama entri add-on; perubahan yang hanya menyentuh sistem add-on atau superadmin ditebak Fitur inti. Pencocokan nama hanya mengenali nama entri persis (mis. "Kunci stok"), bukan terjemahannya; kunci `Fitur:` tetap cara yang andal. Tebakan dicatat di riwayat entri dan dikonfirmasi Admin di editor.
+
+**Satu PR, beberapa fitur:** tombol **Buat draf AI** meminta AI (yang hanya menerima judul, deskripsi, dan nama file PR) memecah PR menjadi 1 sampai 5 usulan, satu per fitur atau pembaruan. Bila hanya satu, entri langsung dibuat. Bila lebih, Admin dibawa ke halaman **Usulan** (`/admin/github/usulan/[id]`) untuk memilih usulan mana yang dijadikan entri, lalu **Selesai** menandai PR ditinjau. Membuat usulan ulang hanya mengganti usulan yang belum dijadikan entri. Semua entri tetap Internal dan belum terbit.
 
 **Pengingat:** Inbox menampilkan pengingat untuk perubahan GitHub yang menunggu lebih dari 7 hari, dan untuk draf yang belum disentuh lebih dari 7 hari **bila** draf itu berasal dari GitHub atau sudah diatur tampil ke pembaca. Draf peta fitur yang masih Internal sengaja tidak diingatkan.
 

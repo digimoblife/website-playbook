@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import type { AppDb } from "@/db/client";
-import { entries, githubChanges, githubImports } from "@/db/schema";
+import { aiProposals, entries, githubChanges, githubImports } from "@/db/schema";
 import { createSession } from "@/lib/auth";
 import { insertUserRow, makeTestDb, snapshot } from "./helpers";
 
@@ -25,10 +25,18 @@ vi.mock("@/db/client", async (importOriginal) => ({
 const githubMock = vi.hoisted(() => ({ getPullRequestDetail: vi.fn() }));
 vi.mock("@/lib/github-api", () => ({ getPullRequestDetail: githubMock.getPullRequestDetail }));
 
-const aiMock = vi.hoisted(() => ({ generateAiDraft: vi.fn() }));
-vi.mock("@/lib/ai-draft", () => ({ generateAiDraft: aiMock.generateAiDraft }));
+const aiMock = vi.hoisted(() => ({ generateAiDraft: vi.fn(), generateAiProposals: vi.fn() }));
+vi.mock("@/lib/ai-draft", () => ({
+  generateAiDraft: aiMock.generateAiDraft,
+  generateAiProposals: aiMock.generateAiProposals,
+}));
 
-import { draftFromPullRequestAction, pullFromGithubAction } from "@/app/admin/github/actions";
+import {
+  createEntryFromProposalAction,
+  draftFromPullRequestAction,
+  finishProposalsAction,
+  pullFromGithubAction,
+} from "@/app/admin/github/actions";
 
 type Outcome = { redirect: string } | { value: unknown };
 async function run(fn: () => Promise<unknown>): Promise<Outcome> {
@@ -85,6 +93,7 @@ beforeEach(() => {
 
   githubMock.getPullRequestDetail.mockResolvedValue({ ok: true, data: prDetail });
   aiMock.generateAiDraft.mockResolvedValue(okDraft);
+  aiMock.generateAiProposals.mockResolvedValue({ status: "ok", proposals: [okDraft.draft] });
 });
 
 describe("pullFromGithubAction: akses", () => {
@@ -258,11 +267,77 @@ describe("draftFromPullRequestAction: PR dari webhook (Langkah 6c)", () => {
 
   it("AI belum aktif: tidak ada entri, perubahan tetap baru", async () => {
     const id = insertChange();
-    aiMock.generateAiDraft.mockResolvedValue({ status: "unavailable", message: "Draf AI belum aktif" });
+    aiMock.generateAiProposals.mockResolvedValue({ status: "unavailable", message: "Draf AI belum aktif" });
     state.token = createSession(adminId, db).token;
     const res = await run(() => draftFromPullRequestAction(undefined, fd(id)));
     expect(res).toEqual({ value: { ok: false, error: "Draf AI belum aktif" } });
     expect(db.select().from(entries).all()).toEqual([]);
     expect(db.select().from(githubChanges).get()).toMatchObject({ state: "baru" });
+  });
+});
+
+describe("Pemecahan PR menjadi beberapa usulan (Langkah 6d)", () => {
+  const fd = (id: number) => {
+    const form = new FormData();
+    form.set("id", String(id));
+    return form;
+  };
+  const insertChange = () =>
+    db
+      .insert(githubChanges)
+      .values({ repo: "bajaklautmalaka/lapaq", kind: "pr", prNumber: 7, title: "feat: banyak fitur", url: "https://github.com/x/pulls/7" })
+      .returning()
+      .get().id;
+  const second = { ...okDraft.draft, title: "Ongkir instan", kind: "addon" as const };
+
+  it("dua usulan: tidak ada entri dibuat, usulan disimpan, nama file PR dicatat, diarahkan ke halaman Usulan", async () => {
+    const id = insertChange();
+    aiMock.generateAiProposals.mockResolvedValue({ status: "ok", proposals: [okDraft.draft, second] });
+    state.token = createSession(adminId, db).token;
+    const res = await run(() => draftFromPullRequestAction(undefined, fd(id)));
+    expect(res).toEqual({ redirect: `/admin/github/usulan/${id}` });
+    expect(db.select().from(entries).all()).toEqual([]);
+    expect(db.select().from(aiProposals).all().map((p) => p.title)).toEqual(["Kunci stok", "Ongkir instan"]);
+    expect(db.select().from(githubChanges).get()).toMatchObject({ state: "baru", files: JSON.stringify(["src/a.ts"]) });
+    // AI hanya menerima judul, deskripsi, dan nama file.
+    expect(aiMock.generateAiProposals).toHaveBeenCalledWith({ prTitle: prDetail.title, prBody: prDetail.body, files: prDetail.files });
+  });
+
+  it("Admin memilih satu usulan: entri Internal dibuat dan tertaut; usulan yang sama tidak bisa dipakai dua kali", async () => {
+    const id = insertChange();
+    aiMock.generateAiProposals.mockResolvedValue({ status: "ok", proposals: [okDraft.draft, second] });
+    state.token = createSession(adminId, db).token;
+    await run(() => draftFromPullRequestAction(undefined, fd(id)));
+    const [, ongkir] = db.select().from(aiProposals).all();
+
+    expect(await run(() => createEntryFromProposalAction(undefined, fd(ongkir.id)))).toEqual({
+      value: { ok: true, message: "Entri dibuat (Internal)." },
+    });
+    const entry = db.select().from(entries).get()!;
+    expect(entry).toMatchObject({ title: "Ongkir instan", kind: "addon", status: "internal", audience: "internal", isPublished: false });
+    expect(await run(() => createEntryFromProposalAction(undefined, fd(ongkir.id)))).toMatchObject({ value: { ok: false } });
+
+    // Membuat usulan ulang tidak menghapus usulan yang sudah jadi entri.
+    await run(() => draftFromPullRequestAction(undefined, fd(id)));
+    expect(db.select().from(aiProposals).all().filter((p) => p.entryId === entry.id)).toHaveLength(1);
+
+    expect(await run(() => finishProposalsAction(undefined, fd(id)))).toEqual({ redirect: "/admin" });
+    expect(db.select().from(githubChanges).get()).toMatchObject({ state: "ditinjau", entryId: entry.id });
+  });
+
+  it("Partner dan Marketing ditolak untuk membuat entri dari usulan dan menyelesaikan", async () => {
+    const id = insertChange();
+    const proposal = db
+      .insert(aiProposals)
+      .values({ changeId: id, position: 1, title: "X" })
+      .returning()
+      .get().id;
+    for (const userId of [partnerId, marketingId]) {
+      state.token = createSession(userId, db).token;
+      const before = snapshot(db);
+      expect(await run(() => createEntryFromProposalAction(undefined, fd(proposal)))).toEqual({ redirect: "/" });
+      expect(await run(() => finishProposalsAction(undefined, fd(id)))).toEqual({ redirect: "/" });
+      expect(snapshot(db)).toBe(before);
+    }
   });
 });
